@@ -40,6 +40,7 @@ class IssueTask:
     requester_login: str
     requester_name: str
     thread_ref: dict[str, Any]
+    created_at: str = ""  # ISO time the issue was opened: the queue order across repos
 
 
 def title_for(plan: Plan) -> str:
@@ -84,7 +85,7 @@ def parse(repo: str, issue: dict[str, Any]) -> IssueTask | None:
     meta = json.loads(m.group(1))
     req = meta.get("requester", {})
     return IssueTask(repo, issue["number"], issue["title"], meta["task"], meta["spec"], req.get("login", ""), req.get("name", ""),
-                     meta.get("thread_ref", {}))
+                     meta.get("thread_ref", {}), issue.get("created_at", ""))
 
 
 def ensure_labels(gh: GitHub, repo: str) -> None:

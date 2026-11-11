@@ -14,6 +14,10 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
+[project.scripts]
+pullwright = "pullwright.cli:main"
+pullwright-work = "pullwright.runner.job:main"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",

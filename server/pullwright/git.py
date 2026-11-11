@@ -79,3 +79,27 @@ def create_pr(cwd: Path, title: str, body: str) -> str:
     if r.returncode != 0:
         raise RuntimeError(f"gh pr create: {r.stderr.strip()}")
     return r.stdout.strip()
+
+
+def clone(url: str, dest: Path, depth: int = 50) -> None:
+    """Clone `url` (which may carry a token) into `dest`. The token is stripped from the saved remote."""
+    r = subprocess.run(["git", "clone", "--quiet", "--depth", str(depth), url, str(dest)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git clone failed: {_redact(r.stderr.strip())}")
+    _git(dest, "remote", "set-url", "origin", re.sub(r"https://[^@/]+@", "https://", url), check=True)
+
+
+def set_identity(cwd: Path, name: str, email: str) -> None:
+    _git(cwd, "config", "user.name", name, check=True)
+    _git(cwd, "config", "user.email", email, check=True)
+
+
+def push(cwd: Path, url: str, branch: str) -> None:
+    """Push `branch` to `url` without storing the URL (it carries a short-lived token)."""
+    r = subprocess.run(["git", "push", "--quiet", url, f"HEAD:refs/heads/{branch}"], cwd=cwd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git push failed: {_redact(r.stderr.strip())}")
+
+
+def _redact(text: str) -> str:
+    return re.sub(r"https://[^@/\s]+@", "https://***@", text)
