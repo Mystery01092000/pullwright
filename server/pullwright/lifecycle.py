@@ -125,7 +125,7 @@ class Run:
             self._sess = Session(
                 cwd=self.cwd, client=self.client, run_id=self.id, bus=self.bus, cfg=self.cfg,
                 main_model=self.main_model, worker_model=self.worker_model, max_cost_usd=self.max_cost_usd,
-                approve=lambda cmd: self.io.approve_command(cmd), cancelled=self.cancelled,
+                approve=lambda cmd: self.io.approve_command(cmd), cancelled=self.cancelled, state_hooks=False,
             )
         return self._sess
 

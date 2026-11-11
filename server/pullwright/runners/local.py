@@ -32,6 +32,6 @@ class LocalRunner:
 
     def start(self, job: Job) -> LocalHandle:
         env = {**os.environ, **job.env, "PULLWRIGHT_GITHUB_TOKEN": job.github_token, "PYTHONUNBUFFERED": "1"}
-        proc = subprocess.Popen([*self.command, job.ref], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        proc = subprocess.Popen([*self.command, *job.args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                 encoding="utf-8", errors="replace", env=env)
         return LocalHandle(proc)

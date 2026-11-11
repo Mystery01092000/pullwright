@@ -130,6 +130,28 @@ class GitHub:
     def request_reviewers(self, repo: str, number: int, reviewers: list[str]) -> None:
         self._req("POST", repo, f"/pulls/{number}/requested_reviewers", json={"reviewers": reviewers})
 
+    def get_pr(self, repo: str, number: int) -> dict[str, Any]:
+        return self._req("GET", repo, f"/pulls/{number}")
+
+    def open_prs(self, repo: str, label: str) -> list[dict[str, Any]]:
+        """Open pull requests carrying `label` (labels live on the PR's issue side)."""
+        items = self._req("GET", repo, "/issues", params={"labels": label, "state": "open", "per_page": 100})
+        return [i for i in items if "pull_request" in i]
+
+    def issue_comments(self, repo: str, number: int) -> list[dict[str, Any]]:
+        """Conversation comments on an issue or a pull request, oldest first."""
+        return self._req("GET", repo, f"/issues/{number}/comments", params={"per_page": 100})
+
+    def review_comments(self, repo: str, number: int) -> list[dict[str, Any]]:
+        """Inline comments on a pull request's diff (path, line, diff_hunk), oldest first."""
+        return self._req("GET", repo, f"/pulls/{number}/comments", params={"per_page": 100})
+
+    def reviews(self, repo: str, number: int) -> list[dict[str, Any]]:
+        return self._req("GET", repo, f"/pulls/{number}/reviews", params={"per_page": 100})
+
+    def reply_to_review_comment(self, repo: str, number: int, comment_id: int, body: str) -> dict[str, Any]:
+        return self._req("POST", repo, f"/pulls/{number}/comments/{comment_id}/replies", json={"body": body})
+
     # repository
     def default_branch(self, repo: str) -> str:
         return self._req("GET", repo, "")["default_branch"]

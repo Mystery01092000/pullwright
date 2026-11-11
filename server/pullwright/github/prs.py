@@ -1,12 +1,13 @@
 """The pull request a runner opens when it finishes an issue: ready for review when green, a draft otherwise."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .. import checks as checks_mod
 from ..pipeline.work import WorkResult
 from .client import GitHub, GitHubError
-from .issues import FAILED, PR_OPEN, IssueTask, set_state
+from .issues import FAILED, LABEL, PR_OPEN, IssueTask, set_state
 
 
 def render_body(task: IssueTask, result: WorkResult) -> str:
@@ -38,5 +39,12 @@ def open_pr(gh: GitHub, task: IssueTask, result: WorkResult, base: str | None = 
             if e.status != 422:  # 422: the requester authored the head commit or is not a collaborator
                 raise
     set_state(gh, task.repo, task.number, PR_OPEN if result.green else FAILED)
+    gh.add_labels(task.repo, pr["number"], [LABEL, PR_OPEN if result.green else FAILED])  # how the dispatcher finds PRs to watch
     gh.comment(task.repo, task.number, f"{'Pull request' if result.green else 'Draft pull request'} opened: {pr['html_url']}")
     return pr
+
+
+def linked_issue(pr: dict[str, Any]) -> int | None:
+    """The issue a Pullwright PR was opened for ('Closes #n' / 'Refs #n' at the start of its body)."""
+    m = re.match(r"\s*(?:Closes|Refs) #(\d+)", pr.get("body") or "")
+    return int(m.group(1)) if m else None

@@ -16,17 +16,29 @@ from typing import Any, Protocol
 @dataclass
 class Job:
     repo: str
-    issue: int
+    issue: int  # the issue number, or the PR number for a feedback job
     github_token: str  # short-lived, scoped to `repo`
     env: dict[str, str] = field(default_factory=dict)  # extra environment (ANTHROPIC_API_KEY, caps)
+    kind: str = "issue"  # issue | feedback
 
     @property
     def ref(self) -> str:
         return f"{self.repo}#{self.issue}"
 
     @property
+    def key(self) -> str:
+        """Unique per piece of work: an issue and a feedback round on its PR can be told apart."""
+        return f"{self.kind}:{self.ref}"
+
+    @property
     def name(self) -> str:
-        return "pullwright-" + self.repo.replace("/", "-").lower() + f"-{self.issue}"
+        suffix = f"pr{self.issue}" if self.kind == "feedback" else str(self.issue)
+        return "pullwright-" + self.repo.replace("/", "-").lower() + f"-{suffix}"
+
+    @property
+    def args(self) -> list[str]:
+        """Arguments for `pullwright-work`."""
+        return ["--pr", self.ref] if self.kind == "feedback" else [self.ref]
 
 
 class Handle(Protocol):

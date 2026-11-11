@@ -65,11 +65,18 @@ class WorkResult:
 
 
 class WorkRun:
-    def __init__(self, session: Session, spec: WorkSpec, plan: CheckPlan | None = None, max_rounds: int = 4) -> None:
+    """`branch` set: continue on that existing branch (a follow-up on an open PR) instead of creating one.
+    `context`: what the agents must know beyond the plan, e.g. earlier runs and the reviewer comments to address."""
+
+    def __init__(self, session: Session, spec: WorkSpec, plan: CheckPlan | None = None, max_rounds: int = 4,
+                 branch: str | None = None, context: str = "", commit_message: str = "") -> None:
         self.s = session
         self.w = spec
         self.checks = plan if plan is not None else checks_mod.load(session.cwd)
         self.max_rounds = max_rounds
+        self.existing_branch = branch
+        self.context = context
+        self.commit_message = commit_message
         self.s.extra_deny = [*self.s.extra_deny, *RUNNER_DENY]
         self._supervisor_id: str | None = None
         self._supervisions = 0
@@ -89,7 +96,8 @@ class WorkRun:
             f"Developer's request:\n{self.w.task}\n\n"
             f"Approved plan:\n{json.dumps(self.w.spec, indent=2)}\n\n"
             f"Checks the pipeline runs after you finish (all must pass):\n{self.checks.describe()}\n\n"
-            f"{repomap.build(self.s.cwd)}"
+            + (f"{self.context}\n\n" if self.context else "")
+            + repomap.build(self.s.cwd)
         )
 
     def supervise(self, feedback: str = "") -> str:
@@ -112,7 +120,8 @@ class WorkRun:
         self.s.emit("state", state="reviewing")
         prompt = (
             f"Developer's request:\n{self.w.task}\n\nApproved plan and acceptance criteria:\n{json.dumps(self.w.spec, indent=2)}\n\n"
-            f"Check results (all passed):\n{checks_mod.report(results)}\n\n"
+            + (f"{self.context}\n\nEverything listed above as feedback to address must be addressed too.\n\n" if self.context else "")
+            + f"Check results (all passed):\n{checks_mod.report(results)}\n\n"
             f"Diff of the work:\n```\n{git.diff(self.s.cwd)}\n```"
         )
         diag = json.loads(self.s.run(self.s.agent("diagnosis", output_schema=DIAG_SCHEMA), prompt).text)
@@ -125,7 +134,8 @@ class WorkRun:
         result = WorkResult(status="failed", rounds=0, branch="", commit="")
         try:
             if git.is_repo(self.s.cwd):
-                self.branch = git.create_branch(self.s.cwd, f"{self.w.issue_number}-{git.slugify(self.w.title, 32)}")
+                self.branch = (git.checkout(self.s.cwd, self.existing_branch) if self.existing_branch
+                               else git.create_branch(self.s.cwd, f"{self.w.issue_number}-{git.slugify(self.w.title, 32)}"))
                 result.branch = self.branch
                 self.s.emit("branch", branch=self.branch)
             setup = self.setup()
@@ -157,7 +167,8 @@ class WorkRun:
     def _finish(self, result: WorkResult) -> WorkResult:
         if self.branch:
             verdict = "checks green" if result.green else result.status
-            result.commit = git.commit_all(self.s.cwd, f"{self.w.title} (#{self.w.issue_number})\n\nPullwright: {verdict}.")
+            message = self.commit_message or f"{self.w.title} (#{self.w.issue_number})"
+            result.commit = git.commit_all(self.s.cwd, f"{message}\n\nPullwright: {verdict}.")
         result.cost_usd = self.s.cost_usd
         self.s.emit("state", state=result.status, rounds=result.rounds, commit=result.commit, cost_usd=result.cost_usd)
         return result

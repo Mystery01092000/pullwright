@@ -41,11 +41,19 @@ class Session:
     extra_deny: list[str] = field(default_factory=list)  # appended to the repo's deny list (e.g. git push in a runner)
     cancelled: threading.Event = field(default_factory=threading.Event)
     cost_usd: float = 0.0
+    state_hooks: bool = True  # run `state` hooks; lifecycle.Run fires its own
     _workers: int = 0
 
     def __post_init__(self) -> None:
         self.cfg = self.cfg or load_config(self.cwd)
         self.bus.subscribe(self._track_cost)
+        if self.state_hooks and any(h.event == "state" for h in self.cfg.hooks):
+            self.bus.subscribe(self._state_hooks)
+
+    def _state_hooks(self, ev: Event) -> None:
+        """`state` hooks in .pullwright/hooks.json run on every pipeline state (describing, working, checking, green...)."""
+        if ev.type == "state" and ev.agent_id == "run":
+            self.cfg.run_hooks("state", ev.payload.get("state", ""), {"run_id": self.run_id, **ev.payload}, self.cwd)
 
     def _track_cost(self, ev: Event) -> None:
         if ev.type == "usage":

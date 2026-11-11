@@ -214,7 +214,15 @@ class Intake:
         if req is None:
             return
         ch = self.channels.get(req["channel"])
-        if result and result.get("pr_url"):
+        if result and result.get("kind") == "feedback":
+            if result.get("status") == "no_feedback":
+                return
+            state = "pr_open" if result.get("status") == "green" else "pr_draft"
+            self.store.update_request(req["id"], state=state)
+            verdict = "all checks pass" if result.get("status") == "green" else f"it stopped at **{result.get('status')}**"
+            msg = (f"Updated {result['pr_url']} after review: {result.get('addressed', 0)} comment(s) addressed, {verdict}. "
+                   f"Review requested from @{req['requester_login']}.")
+        elif result and result.get("pr_url"):
             self.store.update_request(req["id"], state="pr_open" if result.get("status") == "green" else "pr_draft", pr_url=result["pr_url"])
             verdict = "All checks pass" if result.get("status") == "green" else f"It stopped at **{result.get('status')}**; this is a draft"
             msg = f"Pull request for #{number}: {result['pr_url']}. {verdict}. Review requested from @{req['requester_login']}."

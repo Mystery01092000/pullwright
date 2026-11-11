@@ -18,13 +18,15 @@ QUEUED = "pullwright:queued"
 WORKING = "pullwright:working"
 PR_OPEN = "pullwright:pr-open"
 FAILED = "pullwright:failed"
-STATE_LABELS = (QUEUED, WORKING, PR_OPEN, FAILED)
+REVISING = "pullwright:revising"  # on a PR: a runner is addressing review feedback
+STATE_LABELS = (QUEUED, WORKING, PR_OPEN, FAILED, REVISING)
 LABEL_SPECS = {
     LABEL: ("5319e7", "Planned and implemented by Pullwright"),
     QUEUED: ("c5def5", "Approved; waiting for a runner"),
     WORKING: ("fbca04", "A runner is implementing this"),
     PR_OPEN: ("0e8a16", "Pull request opened; waiting for review"),
     FAILED: ("d93f0b", "The runner could not get every check to pass"),
+    REVISING: ("fbca04", "A runner is addressing review feedback on this pull request"),
 }
 _META = re.compile(r"<!--\s*pullwright:(\{.*?\})\s*-->", re.S)
 

@@ -50,7 +50,7 @@ class DockerRunner:
                 "--stop-timeout", "30"]
         for n in names:
             argv += ["-e", n]
-        return [*argv, self.image, "timeout", f"{self.timeout_minutes}m", "pullwright-work", job.ref]
+        return [*argv, self.image, "timeout", f"{self.timeout_minutes}m", "pullwright-work", *job.args]
 
     def start(self, job: Job) -> DockerHandle:
         env = {**os.environ, **job.env, "PULLWRIGHT_GITHUB_TOKEN": job.github_token}

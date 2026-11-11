@@ -105,7 +105,9 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
 
     if repos and os.environ.get("PULLWRIGHT_DISPATCHER", "on") != "off":
         def done(job: Job, outcome: JobOutcome) -> None:
-            intake.on_job_done(job.repo, job.issue, outcome.result)
+            # a feedback job is keyed by its PR; the chat thread belongs to the issue the PR closes
+            issue = (outcome.result or {}).get("issue") or job.issue
+            intake.on_job_done(job.repo, issue, outcome.result)
 
         def on_event(job: Job, ev: dict[str, Any]) -> None:
             from .events import Event

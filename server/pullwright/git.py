@@ -81,9 +81,11 @@ def create_pr(cwd: Path, title: str, body: str) -> str:
     return r.stdout.strip()
 
 
-def clone(url: str, dest: Path, depth: int = 50) -> None:
-    """Clone `url` (which may carry a token) into `dest`. The token is stripped from the saved remote."""
-    r = subprocess.run(["git", "clone", "--quiet", "--depth", str(depth), url, str(dest)], capture_output=True, text=True)
+def clone(url: str, dest: Path, depth: int = 50, branch: str = "") -> None:
+    """Clone `url` (which may carry a token) into `dest`, optionally a given branch. The token is stripped from the
+    saved remote."""
+    extra = ["--branch", branch] if branch else []
+    r = subprocess.run(["git", "clone", "--quiet", "--depth", str(depth), *extra, url, str(dest)], capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"git clone failed: {_redact(r.stderr.strip())}")
     _git(dest, "remote", "set-url", "origin", re.sub(r"https://[^@/]+@", "https://", url), check=True)
