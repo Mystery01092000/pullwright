@@ -84,6 +84,17 @@ def _node_runner(root: Path) -> str:
     return "npm"
 
 
+def _has_python_tests(root: Path, pyproject: str) -> bool:
+    """Recognize common pytest layouts and configuration files."""
+    return (
+        _has(root, "tests", "test", "pytest.ini", "tox.ini")
+        or any(root.glob("*_test.py"))
+        or any(root.glob("test_*.py"))
+        or bool(re.search(r"^\s*\[tool:pytest\]\s*$", _read(root / "setup.cfg"), re.IGNORECASE | re.MULTILINE))
+        or "pytest" in pyproject
+    )
+
+
 def detect(root: Path) -> CheckPlan:
     """Best-effort setup and checks from the project files. One ecosystem per repo root."""
     plan = CheckPlan()
@@ -100,7 +111,7 @@ def detect(root: Path) -> CheckPlan:
             plan.checks["lint"] = f"{run}ruff check ."
         if "mypy" in pyproject:
             plan.checks["typecheck"] = f"{run}mypy ."
-        if _has(root, "tests", "test") or "pytest" in pyproject:
+        if _has_python_tests(root, pyproject):
             plan.checks["test"] = f"{run}pytest -q"
     elif _has(root, "package.json"):
         runner = _node_runner(root)
