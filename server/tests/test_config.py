@@ -98,3 +98,10 @@ def test_lifecycle_uses_config_hooks_and_skill_tool(tmp_path: Path):
     assert worker_call["model"] == "claude-haiku-5-5" and worker_call["output_config"]["effort"] == "low"
     assert "Always use tabs." in worker_call["system"][0]["text"]
     assert any(t["name"] == "load_skill" for t in worker_call["tools"])
+
+
+def test_env_file_parsing_strips_inline_comments_but_not_quoted_hashes():
+    from pullwright import parse_env
+
+    env = parse_env("# header\nA=1   # one\nB='x # not a comment'\nC=\"quoted\"\nD=url#frag\n\nE=\n")
+    assert env == {"A": "1", "B": "x # not a comment", "C": "quoted", "D": "url#frag", "E": ""}
