@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from . import git
-from .agent import AgentDef, RunResult, run_agent
+from .agent import AgentDef, RunResult
 from .config import HarnessConfig, load_config
 from .events import Event, EventBus
 from .models import MAIN_MODEL, WORKER_MODEL
-from .tools import TOOLS, ToolContext, ToolError
+from .session import Session
 
 INTAKE_SCHEMA = {
     "type": "object",
@@ -84,7 +84,8 @@ class Run:
     cost_usd: float = 0.0
     cancelled: threading.Event = field(default_factory=threading.Event)
     cfg: HarnessConfig | None = None  # loaded from <cwd>/.pullwright unless injected
-    _workers: int = 0
+    _sess: Session | None = None
+    _supervisor_id: str | None = None
 
     def __post_init__(self) -> None:
         self.thread_id = self.thread_id or self.id
@@ -119,67 +120,23 @@ class Run:
         self.state = state
         self.bus.emit(Event("state", self.id, "run", {"state": state, **payload}))
 
-    def _ctx(self) -> ToolContext:
-        g = self.cfg.guardrails
-        hooks = self.cfg.hooks
-
-        def pre(name: str, inp: dict[str, Any]) -> str | None:
-            return self.cfg.run_hooks("pre_tool", name, {"run_id": self.id, "tool": name, "input": inp}, self.cwd)
-
-        def post(name: str, inp: dict[str, Any], out: str, err: bool) -> None:
-            self.cfg.run_hooks("post_tool", name, {"run_id": self.id, "tool": name, "input": inp, "output": out[:4000], "is_error": err}, self.cwd)
-
-        return ToolContext(
-            root=self.cwd,
-            approve=self.io.approve_command,
-            bash_timeout=int(g.get("bash_timeout", 120)),
-            deny=g.get("deny"),
-            ask=g.get("ask"),
-            allow=g.get("allow"),
-            pre_tool=pre if hooks else None,
-            post_tool=post if hooks else None,
-        )
-
-    def _load_skill_tool(self) -> tuple[dict[str, Any], Any]:
-        schema = {
-            "description": "Read the full instructions of a skill listed in the system prompt.",
-            "strict": True,
-            "input_schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"], "additionalProperties": False},
-        }
-
-        def load(ctx: ToolContext, name: str) -> str:
-            skill = self.cfg.skills.get(name)
-            if skill is None:
-                raise ToolError(f"unknown skill {name!r}; available: {', '.join(self.cfg.skills) or 'none'}")
-            return skill.body()
-
-        return schema, load
+    def _session(self) -> Session:
+        if self._sess is None:
+            self._sess = Session(
+                cwd=self.cwd, client=self.client, run_id=self.id, bus=self.bus, cfg=self.cfg,
+                main_model=self.main_model, worker_model=self.worker_model, max_cost_usd=self.max_cost_usd,
+                approve=lambda cmd: self.io.approve_command(cmd), cancelled=self.cancelled,
+            )
+        return self._sess
 
     def _agent(self, role: str, name: str | None = None, **kw: Any) -> AgentDef:
-        """Build an AgentDef for a role from the repo/default definition, plus project instructions, skills and run-level models."""
-        spec = self.cfg.agent(role)
-        extra: dict[str, Any] = dict(kw.pop("extra_tools", {}))
-        if self.cfg.skills:
-            extra["load_skill"] = self._load_skill_tool()
-        tools = list(TOOLS) if spec.tools is None else list(spec.tools)  # None = every tool, including MCP ones
-        tools += [t for t in extra if t not in tools]
-        return AgentDef(
-            name=name or role,
-            system=self.cfg.system_prompt(role),
-            model=spec.model or (self.worker_model if role == "worker" else self.main_model),
-            effort=spec.effort or "high",
-            tools=tools,
-            max_turns=spec.max_turns or 50,
-            max_cost_usd=min(spec.max_cost_usd or self.max_cost_usd, self.max_cost_usd),
-            extra_tools=extra,
-            **kw,
-        )
+        return self._session().agent(role, name, **kw)
 
     def _run(self, agent: AgentDef, prompt: str, parent: str | None = None) -> RunResult:
         self._check_cancel()
         if self.cost_usd > self.max_cost_usd:
             raise RuntimeError(f"run cost ${self.cost_usd:.2f} exceeds cap ${self.max_cost_usd:.2f}")
-        res = run_agent(self.client, agent, [{"role": "user", "content": prompt}], self._ctx(), self.bus, run_id=self.id, parent_id=parent, cancel=self.cancelled)
+        res = self._session().run(agent, prompt, parent=parent)
         self._check_cancel()
         return res
 
@@ -200,27 +157,7 @@ class Run:
         raise RuntimeError("intake not confirmed after 3 attempts")
 
     def _spawn_worker_tool(self) -> dict[str, Any]:
-        schema = {
-            "description": "Run a worker agent with fresh context on one well-specified task. Returns the worker's final report.",
-            "strict": True,
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "task": {"type": "string", "description": "Exactly what to do, with acceptance criteria"},
-                    "context": {"type": "string", "description": "Relevant files, conventions, and constraints the worker must know"},
-                },
-                "required": ["task", "context"],
-                "additionalProperties": False,
-            },
-        }
-
-        def spawn(ctx: ToolContext, task: str, context: str) -> str:
-            self._workers += 1
-            worker = self._agent("worker", name=f"worker{self._workers}")
-            res = self._run(worker, f"Task:\n{task}\n\nContext:\n{context}", parent=self._supervisor_id)
-            return f"[worker stop={res.stop} cost=${res.cost_usd:.3f}]\n{res.text}"
-
-        return {"spawn_worker": (schema, spawn)}
+        return self._session().spawn_worker_tool(parent=lambda: self._supervisor_id)
 
     def run_supervisor(self, extra: str = "") -> str:
         self._set("working")
@@ -230,8 +167,7 @@ class Run:
         if extra:
             prompt += f"\n\n{extra}"
         self._check_cancel()
-        res = run_agent(self.client, agent, [{"role": "user", "content": prompt}], self._ctx(), self.bus, run_id=self.id, agent_id=self._supervisor_id, cancel=self.cancelled)
-        self._check_cancel()
+        res = self._session().run(agent, prompt, agent_id=self._supervisor_id)
         return res.text
 
     def run_diagnosis(self) -> dict[str, Any]:
