@@ -3,9 +3,15 @@
     uv run python -m evals.run                 # every case in evals/cases
     uv run python -m evals.run python-subtract # one case
     uv run python -m evals.run --max-cost 1.5  # per-case dollar cap
+    uv run python -m evals.run --pipeline local  # the local-mode lifecycle instead of the team pipeline
 
 A case is JSON: {"task", "files": {path: content}, "checks": [{"cmd", "expect_exit"?, "expect_stdout"?}], "max_cost_usd"?}.
-Checks run in the repo after the run finishes; the case passes when the run reached `done` and every check passes.
+Two pipelines can be measured:
+  team (default)  what an approved issue goes through: describer + verifier plan (auto-approved), then the runner's
+                  loop (Sonnet supervisor, Haiku workers, the case's checks as the project checks, independent review)
+  local           the local-mode lifecycle: intake, supervisor, workers, diagnosis, summarizer
+The case's checks run again in the repo afterwards as the grade; it passes when the pipeline finished (done / green)
+and every check passes. Costs are reported per stage.
 Results go to evals/results/<timestamp>.json plus a markdown table on stdout. Every run spends real money.
 """
 from __future__ import annotations
@@ -19,8 +25,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from pullwright.checks import CheckPlan
 from pullwright.lifecycle import Run
 from pullwright.models import MAIN_MODEL, WORKER_MODEL
+from pullwright.pipeline.plan import Developer, PlanRequest, PlanRun, Review
+from pullwright.pipeline.work import WorkRun, WorkSpec
+from pullwright.session import Session
 
 HERE = Path(__file__).parent
 CASES = HERE / "cases"
@@ -38,6 +48,13 @@ class AutoIO:
 
     def want_pr(self, summary: str) -> bool:
         return False
+
+
+class AutoApprove:
+    """The developer's Approve click, for unattended team-pipeline evals."""
+
+    def review_plan(self, request: Any, spec: dict[str, Any], verification: dict[str, Any], revision: int) -> Review:
+        return Review("approve")
 
 
 def load_cases(names: list[str] | None = None) -> list[dict[str, Any]]:
@@ -90,6 +107,37 @@ def run_case(case: dict[str, Any], client: Any, max_cost: float | None = None, *
     }
 
 
+def run_team_case(case: dict[str, Any], client: Any, max_cost: float | None = None, main_model: str = MAIN_MODEL,
+                  worker_model: str = WORKER_MODEL, max_rounds: int = 4) -> dict[str, Any]:
+    """Plan (describer + verifier, auto-approved) and implement (runner loop) a case, as an approved issue would be."""
+    repo = _setup_repo(case)
+    cap = max_cost if max_cost is not None else float(case.get("max_cost_usd", 3.0))
+    t0, error, state, plan_spec, diagnosis = time.time(), "", "failed", None, None
+    models = {"main_model": main_model, "worker_model": worker_model}
+    plan_s = Session(cwd=repo, client=client, max_cost_usd=min(1.0, cap), **models)
+    work_s = Session(cwd=repo, client=client, max_cost_usd=cap, approve=lambda _cmd: True, **models)
+    try:
+        plan = PlanRun(plan_s, PlanRequest(task=case["task"], repo=f"eval/{case['name']}", requester=Developer("eval")), AutoApprove()).run()
+        plan_spec = plan.spec
+        checks = CheckPlan(setup=list(case.get("setup", [])),
+                           checks={f"check{i}": c["cmd"] for i, c in enumerate(case.get("checks", []), 1) if c.get("expect_exit", 0) == 0})
+        spec = WorkSpec(repo=f"eval/{case['name']}", issue_number=0, title=plan.spec.get("title") or case["name"], task=case["task"], spec=plan.spec)
+        result = WorkRun(work_s, spec, checks, max_rounds=max_rounds).run()
+        state, diagnosis, error = result.status, result.diagnosis, result.error
+    except Exception as e:  # the case fails; the eval keeps going
+        error = f"{type(e).__name__}: {e}"
+    graded = [_check(repo, c) for c in case.get("checks", [])] if state == "green" else []
+    return {
+        "name": case["name"], "pipeline": "team",
+        "passed": state == "green" and all(c["ok"] for c in graded),
+        "state": state, "error": error,
+        "cost_usd": round(plan_s.cost_usd + work_s.cost_usd, 4),
+        "stage_cost_usd": {"plan": round(plan_s.cost_usd, 4), "work": round(work_s.cost_usd, 4)},
+        "seconds": round(time.time() - t0, 1),
+        "plan": plan_spec, "diagnosis": diagnosis, "checks": graded, "repo": str(repo),
+    }
+
+
 def table(results: list[dict[str, Any]]) -> str:
     rows = ["| case | pass | state | checks | cost | time |", "|---|---|---|---|---|---|"]
     for r in results:
@@ -106,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-cost", type=float, default=None, help="per-case dollar cap")
     ap.add_argument("--main-model", default=MAIN_MODEL)
     ap.add_argument("--worker-model", default=WORKER_MODEL)
+    ap.add_argument("--pipeline", choices=["team", "local"], default="team", help="what to measure (default: team)")
     a = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -116,12 +165,14 @@ def main(argv: list[str] | None = None) -> int:
     results = []
     for case in load_cases(a.cases or None):
         print(f"running {case['name']}…", flush=True)
-        r = run_case(case, client, a.max_cost, main_model=a.main_model, worker_model=a.worker_model)
+        run = run_team_case if a.pipeline == "team" else run_case
+        r = run(case, client, a.max_cost, main_model=a.main_model, worker_model=a.worker_model)
         print(f"  {'PASS' if r['passed'] else 'FAIL'} state={r['state']} cost=${r['cost_usd']:.3f} {r['error']}", flush=True)
         results.append(r)
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"{time.strftime('%Y%m%d-%H%M%S')}.json"
-    out.write_text(json.dumps({"main_model": a.main_model, "worker_model": a.worker_model, "results": results}, indent=2), encoding="utf-8")
+    out.write_text(json.dumps({"pipeline": a.pipeline, "main_model": a.main_model, "worker_model": a.worker_model, "results": results}, indent=2),
+                   encoding="utf-8")
     print("\n" + table(results) + f"\n\nsaved {out}")
     return 0 if all(r["passed"] for r in results) else 1
 
