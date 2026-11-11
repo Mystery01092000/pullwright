@@ -82,7 +82,7 @@ class Run:
     pr_url: str = ""
     cost_usd: float = 0.0
     cancelled: threading.Event = field(default_factory=threading.Event)
-    cfg: HarnessConfig | None = None  # loaded from <cwd>/.harness unless injected
+    cfg: HarnessConfig | None = None  # loaded from <cwd>/.pullwright unless injected
     _workers: int = 0
 
     def __post_init__(self) -> None:
@@ -267,7 +267,7 @@ class Run:
                     break
                 self.run_supervisor("Diagnosis found gaps that must be fixed:\n- " + "\n- ".join(diag["gaps"]))
             if self.branch:
-                self.commit = git.commit_all(self.cwd, f"harness: {self.task[:60]}")
+                self.commit = git.commit_all(self.cwd, f"pullwright: {self.task[:60]}")
             self.run_summary()
             self._set("awaiting_pr_decision", summary=self.summary)
             if self.branch and self.commit and self.io.want_pr(self.summary):

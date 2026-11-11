@@ -3,9 +3,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from harness.config import load_config, parse_frontmatter
-from harness.lifecycle import Run
-from harness.tools import ToolContext, execute
+from pullwright.config import load_config, parse_frontmatter
+from pullwright.lifecycle import Run
+from pullwright.tools import ToolContext, execute
 from tests.fake_client import FakeClient, text, tool_use, turn
 from tests.test_lifecycle import DIAG_OK, INTAKE, ScriptedIO
 
@@ -25,7 +25,7 @@ def test_defaults_without_harness_dir(tmp_path: Path):
 
 
 def _harness(repo: Path) -> Path:
-    h = repo / ".harness"
+    h = repo / ".pullwright"
     (h / "agents").mkdir(parents=True)
     (h / "skills" / "deploy").mkdir(parents=True)
     (h / "agents" / "worker.md").write_text("---\nmodel: claude-haiku-5-5\neffort: low\nmax_turns: 7\n---\nCustom worker prompt.")

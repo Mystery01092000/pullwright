@@ -46,7 +46,7 @@ export default function App() {
       <aside className="glass r-lg flex min-h-0 shrink-0 flex-col transition-all" style={{ width: sidebar ? 264 : 0, overflow: 'hidden', opacity: sidebar ? 1 : 0 }}>
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <span className="h-3 w-3 rounded-[4px]" style={{ background: 'linear-gradient(160deg,#e8f6ff,#5fb2f2)', boxShadow: '0 0 12px rgba(95,178,242,.6)' }} />
-          <span className="font-semibold tracking-tight">Harness</span>
+          <span className="font-semibold tracking-tight">Pullwright</span>
           <button className="pill r-sm ml-auto px-2.5 py-1 text-xs" onClick={() => setSel(null)}>+ New</button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-2 py-1">

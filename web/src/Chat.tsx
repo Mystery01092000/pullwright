@@ -115,7 +115,7 @@ export function NewTaskComposer({ onSubmit, placeholder }: { onSubmit: (text: st
   return (
     <PromptComposer
       prompts={EXAMPLES}
-      placeholder={placeholder ?? 'Describe the task. The harness proposes a plan before touching code.'}
+      placeholder={placeholder ?? 'Describe the task. Pullwright proposes a plan before touching code.'}
       platforms={KINDS}
       models={MODELS}
       modelNotes={['Balanced, default', 'Fastest, cheapest', 'Most capable, priciest']}

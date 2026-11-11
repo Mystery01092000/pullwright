@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from harness import git
-from harness.lifecycle import Run
+from pullwright import git
+from pullwright.lifecycle import Run
 from tests.fake_client import FakeClient, text, tool_use, turn
 
 
@@ -59,7 +59,7 @@ def test_full_lifecycle(repo: Path):
 
     assert run.state == "done"
     assert states == ["intake", "awaiting_confirmation", "working", "diagnosing", "summarizing", "awaiting_pr_decision", "done"]
-    assert run.branch == "harness/add-a-hello-function" and git.current_branch(repo) == run.branch
+    assert run.branch == "pullwright/add-a-hello-function" and git.current_branch(repo) == run.branch
     assert run.commit and "def hello" in (repo / "app.py").read_text()
     assert subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout == ""
     assert [k for k, _ in io.asked] == ["confirm", "pr"]

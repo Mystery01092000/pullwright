@@ -1,7 +1,7 @@
 [project]
-name = "harness"
+name = "pullwright"
 version = "0.1.0"
-description = "Agentic harness: supervisor/worker/diagnosis/summarizer agents on the Claude API"
+description = "Chat task to reviewed pull request: describer/verifier planning, Haiku workers under a Sonnet supervisor, checks until green"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.1.0",
@@ -26,4 +26,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["harness"]
+packages = ["pullwright"]

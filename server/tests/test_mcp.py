@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from harness.mcp_tools import load_mcp
-from harness.tools import TOOLS, ToolContext, execute, schemas
+from pullwright.mcp_tools import load_mcp
+from pullwright.tools import TOOLS, ToolContext, execute, schemas
 
 HERE = Path(__file__).parent
 

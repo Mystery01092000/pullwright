@@ -22,7 +22,7 @@ def slugify(text: str, n: int = 40) -> str:
 
 
 def create_branch(cwd: Path, slug: str) -> str:
-    name = f"harness/{slug}"
+    name = f"pullwright/{slug}"
     existing = _git(cwd, "branch", "--list", f"{name}*").split()
     if name in existing:
         name = f"{name}-{len(existing) + 1}"

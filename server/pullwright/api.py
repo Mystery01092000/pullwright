@@ -1,7 +1,7 @@
 """FastAPI surface: start runs, answer decisions, replay/stream events, cost rollups.
 
-Run:  uv run uvicorn harness.api:app --reload --port 8765
-Env:  HARNESS_DB (default harness.db), HARNESS_MCP (default mcp.json)
+Run:  uv run uvicorn pullwright.api:app --reload --port 8765
+Env:  PULLWRIGHT_DB (default pullwright.db), PULLWRIGHT_MCP (default mcp.json); HARNESS_* names still read
 """
 from __future__ import annotations
 
@@ -107,16 +107,16 @@ def _orphan_sweep(store: Store) -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     _orphan_sweep(app.state.store)
-    cfg = Path(os.environ.get("HARNESS_MCP", "mcp.json"))
+    cfg = Path(os.environ.get("PULLWRIGHT_MCP") or os.environ.get("HARNESS_MCP", "mcp.json"))
     app.state.mcp = load_mcp(cfg) if cfg.is_file() else None
     yield
     if app.state.mcp:
         app.state.mcp.close()
 
 
-app = FastAPI(title="agentic-harness", lifespan=_lifespan)
+app = FastAPI(title="pullwright", lifespan=_lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.state.store = Store(os.environ.get("HARNESS_DB", "harness.db"))
+app.state.store = Store(os.environ.get("PULLWRIGHT_DB") or os.environ.get("HARNESS_DB", "pullwright.db"))
 app.state.live: dict[str, LiveRun] = {}
 app.state.client_factory = None  # tests inject a fake; None -> anthropic.Anthropic()
 

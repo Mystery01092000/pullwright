@@ -7,7 +7,7 @@
   {
     "event": "post_tool",
     "match": "bash",
-    "command": "python -c \"import sys,json; p=json.load(sys.stdin); open('.harness/bash.log','a').write(p['input']['command']+'\n')\""
+    "command": "python -c \"import sys,json; p=json.load(sys.stdin); open('.pullwright/bash.log','a').write(p['input']['command']+'\n')\""
   },
   {
     "event": "state",

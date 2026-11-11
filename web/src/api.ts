@@ -1,4 +1,4 @@
-// Hand-written mirror of server/harness/{api,events,store}.py. Regenerate with openapi-typescript if it drifts.
+// Hand-written mirror of server/pullwright/{api,events,store}.py. Regenerate with openapi-typescript if it drifts.
 const BASE = import.meta.env.VITE_API ?? '/api'
 
 export type Ev = {

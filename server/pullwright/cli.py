@@ -1,7 +1,7 @@
-"""Terminal front end for the harness.
+"""Terminal front end for pullwright.
 
-    uv run python -m harness.cli "add a hello() function with a test" --cwd ../my-repo
-    uv run python -m harness.cli "fix the flaky test" --cwd ../my-repo --worker     # one worker, no lifecycle
+    uv run python -m pullwright.cli "add a hello() function with a test" --cwd ../my-repo
+    uv run python -m pullwright.cli "fix the flaky test" --cwd ../my-repo --worker     # one worker, no lifecycle
 """
 from __future__ import annotations
 
@@ -234,7 +234,7 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")  # Windows consoles default to cp1252
-    ap = argparse.ArgumentParser(prog="harness", description="Intake → confirm → supervisor + workers → diagnosis → summary → branch/PR. With no task, opens an interactive session.")
+    ap = argparse.ArgumentParser(prog="pullwright", description="Intake → confirm → supervisor + workers → diagnosis → summary → branch/PR. With no task, opens an interactive session.")
     ap.add_argument("task", nargs="?", help="a first task to run; omit to just open the prompt")
     ap.add_argument("--cwd", default=".", help="repository to work in (default: current directory)")
     ap.add_argument("--model", default="claude-opus-5-5", help="model for intake, supervisor, diagnosis and summary")
@@ -249,10 +249,10 @@ def main(argv: list[str] | None = None) -> int:
     session = Session(cwd, client, a.model, a.worker_model, a.max_cost)
 
     head = Table.grid(padding=(0, 2))
-    head.add_row("[grey50]repo[/]", str(cwd) + ("  [grey50](.harness found)[/]" if session.cfg.root else ""))
+    head.add_row("[grey50]repo[/]", str(cwd) + ("  [grey50](repo config found)[/]" if session.cfg.root else ""))
     head.add_row("[grey50]models[/]", f"{a.model.removeprefix('claude-')} / workers {a.worker_model.removeprefix('claude-')}")
     head.add_row("[grey50]cap[/]", f"${a.max_cost:.2f} per run")
-    console.print(Panel(head, title="[bold]harness[/]", subtitle="[grey50]/help for commands[/]", border_style="grey42"))
+    console.print(Panel(head, title="[bold]pullwright[/]", subtitle="[grey50]/help for commands[/]", border_style="grey42"))
 
     if a.worker:
         if not a.task:

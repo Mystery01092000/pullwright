@@ -1,8 +1,9 @@
-"""Per-repository configuration from <repo>/.harness/, layered over the defaults shipped in harness/defaults/.
+"""Per-repository configuration from <repo>/.pullwright/ (or the older .harness/), layered over the defaults
+shipped in pullwright/defaults/.
 
-.harness/
+.pullwright/
   agents/<name>.md      frontmatter (model, effort, tools, max_turns, max_cost_usd) + system prompt body
-  instructions.md       appended to every agent's system prompt (the CLAUDE.md of this harness)
+  instructions.md       appended to every agent's system prompt (the CLAUDE.md of this repo for the agents)
   guardrails.json       {"deny": [regex], "ask": [regex], "allow": [regex], "bash_timeout": 120}
   hooks.json            [{"event": "pre_tool|post_tool|state", "match": regex, "command": "shell"}]
   skills/<name>/SKILL.md  frontmatter (description) + instructions; agents load them on demand
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULTS = Path(__file__).parent / "defaults"
+CONFIG_DIRS = (".pullwright", ".harness")  # first found wins; .harness is the pre-rename name
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -80,7 +82,7 @@ class Hook:
 
 @dataclass
 class HarnessConfig:
-    root: Path | None  # the .harness dir, if present
+    root: Path | None  # the .pullwright (or .harness) dir, if present
     agents: dict[str, AgentSpec]
     instructions: str = ""
     guardrails: dict[str, Any] = field(default_factory=dict)
@@ -89,7 +91,7 @@ class HarnessConfig:
 
     def agent(self, name: str) -> AgentSpec:
         if name not in self.agents:
-            raise KeyError(f"no agent definition for {name!r}; add .harness/agents/{name}.md")
+            raise KeyError(f"no agent definition for {name!r}; add .pullwright/agents/{name}.md")
         return self.agents[name]
 
     def system_prompt(self, name: str) -> str:
@@ -135,7 +137,7 @@ def _load_skills(d: Path) -> dict[str, Skill]:
 
 
 def load_config(cwd: Path) -> HarnessConfig:
-    root = cwd / ".harness"
+    root = next((cwd / d for d in CONFIG_DIRS if (cwd / d).is_dir()), cwd / CONFIG_DIRS[0])
     agents = {**_load_agents(DEFAULTS / "agents", "default"), **_load_agents(root / "agents", "repo")}
     cfg = HarnessConfig(root=root if root.is_dir() else None, agents=agents)
     if cfg.root is None:

@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from harness import api
-from harness.store import Store
+from pullwright import api
+from pullwright.store import Store
 from tests.fake_client import FakeClient, text, tool_use, turn
 
 INTAKE = json.dumps({"understanding": "u", "plan": ["p"], "questions": []})
@@ -64,7 +64,7 @@ def test_run_via_api(client: TestClient, tmp_path: Path):
     client.post(f"/runs/{run_id}/decide", json={"approved": False})
 
     r = _wait(client, run_id, lambda r: r["state"] == "done")
-    assert r["branch"] == "harness/add-b-txt" and r["commit_sha"] and r["cost_usd"] > 0
+    assert r["branch"] == "pullwright/add-b-txt" and r["commit_sha"] and r["cost_usd"] > 0
     assert (repo / "b.txt").read_text() == "b"
 
     evs = client.get(f"/runs/{run_id}/events").json()
@@ -108,8 +108,8 @@ def test_cancel_unblocks_pending_decision(client: TestClient, tmp_path: Path):
 
 
 def test_orphan_sweep_closes_runs_left_working():
-    from harness.api import _orphan_sweep
-    from harness.events import Event
+    from pullwright.api import _orphan_sweep
+    from pullwright.events import Event
     s = Store(":memory:")
     s.create_run("r1", "t", ".")
     s.update_run("r1", state="working")
@@ -136,15 +136,15 @@ def test_continue_run_shares_thread_branch_and_context(client: TestClient, tmp_p
     repo = _repo(tmp_path)
     first = client.post("/runs", json={"task": "add b.txt", "cwd": str(repo)}).json()["id"]
     r1 = _finish(client, first)
-    assert r1["thread_id"] == first and r1["branch"] == "harness/add-b-txt"
+    assert r1["thread_id"] == first and r1["branch"] == "pullwright/add-b-txt"
 
     assert client.post("/runs", json={"task": "x", "continue_from": "nope"}).status_code == 404
     second = client.post("/runs", json={"task": "also add c.txt", "continue_from": first}).json()["id"]
     r2 = _finish(client, second)
     assert r2["thread_id"] == first and r2["cwd"] == r1["cwd"]
-    assert r2["branch"] == "harness/add-b-txt"  # continued on the same branch, no new one
+    assert r2["branch"] == "pullwright/add-b-txt"  # continued on the same branch, no new one
     branches = subprocess.run(["git", "branch"], cwd=repo, capture_output=True, text=True).stdout
-    assert branches.count("harness/") == 1
+    assert branches.count("pullwright/") == 1
 
     # the intake prompt of the continuation carries the thread history
     live = api.app.state.live[second]

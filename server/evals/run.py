@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from harness.lifecycle import Run
+from pullwright.lifecycle import Run
 
 HERE = Path(__file__).parent
 CASES = HERE / "cases"
@@ -54,7 +54,7 @@ def _setup_repo(case: dict[str, Any]) -> Path:
         p = repo / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
-    for cmd in (["git", "init", "-q", "-b", "main"], ["git", "config", "user.email", "eval@harness"], ["git", "config", "user.name", "eval"], ["git", "add", "-A"], ["git", "commit", "-q", "-m", "fixture"]):
+    for cmd in (["git", "init", "-q", "-b", "main"], ["git", "config", "user.email", "eval@pullwright"], ["git", "config", "user.name", "eval"], ["git", "add", "-A"], ["git", "commit", "-q", "-m", "fixture"]):
         subprocess.run(cmd, cwd=repo, check=True, capture_output=True)
     return repo
 

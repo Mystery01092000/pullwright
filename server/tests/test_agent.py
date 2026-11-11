@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from harness.agent import AgentDef, run_agent
-from harness.events import EventBus
-from harness.pricing import cost_usd
-from harness.tools import ToolContext
+from pullwright.agent import AgentDef, run_agent
+from pullwright.events import EventBus
+from pullwright.pricing import cost_usd
+from pullwright.tools import ToolContext
 from tests.fake_client import FakeClient, text, thinking, tool_use, turn
 
 
