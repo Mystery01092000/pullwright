@@ -17,11 +17,11 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | Runner job (`pullwright-work`): clone, work, push, PR | x | x | x | | tested against a bare repo and fake GitHub |
 | Docker runner + runner image | x | x | x | | image built and smoke-tested locally (uid 1000, node 22, uv, git) |
 | Dispatcher: oldest first, one at a time | x | x | x | | |
-| Intake: requests, account linking, approval by write access | x | x | | | |
+| Intake: requests, account linking, approval by write access | x | x | x | | |
 | Slack channel (Socket Mode, Block Kit, revise modal) | x | x | | | needs a Slack app (deploy/slack-manifest.yml) |
 | Teams channel (Bot Framework REST, Adaptive Card, JWT verification) | x | x | | | needs an Azure Bot registration |
-| Web channel: GitHub login, Requests and Queue screens | x | x (API), build | | | |
-| `pullwright-serve`: /auth at root, /api, UI at / | x | x | | | |
+| Web channel: GitHub login, Requests and Queue screens | x | x (API), build | x | | |
+| `pullwright-serve`: /auth at root, /api, UI at / | x | x | x | | |
 | CI (tests, ruff, web build, runner image) | x | x | x | x | green on GitHub |
 | Docs: README, architecture, configuration, setup guides, runners, cost, evals, roadmap | x | n/a | n/a | | |
 | EC2 runner | | | | | roadmap |
@@ -34,12 +34,13 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | Date | Task | Result |
 |---|---|---|
 | 2026-11-11 | arcanetech-ai/pullwright-sandbox#1: `OrderStore.remove` + half-up percentage discount, with tests | Plan: 9 Sonnet calls, $0.088, verifier approved. Runner: Docker, `uv sync` 4s, 1 Haiku worker, lint+tests green in round 1, review complete. PR #2 ready, `Closes #1`, review requested from the requester, commits by pullwright[bot]. **$0.135 total, 72s runner time.** |
+| 2026-11-11 | sandbox#3 from the **web UI** (GitHub OAuth login): `OrderStore.list()` sorted by total | Plan $0.067, approved in the web plan card (write access checked live), issue #3, runner green in round 1 ($0.041), PR #4 with the describer's title, PR link posted back in the web thread. **$0.108 total.** |
 
 ## To verify live
 
 1. ~~A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.~~ Done 2026-11-11.
 2. A Slack test workspace: mention → plan card → approve → PR link in the thread.
-3. The web UI end to end with GitHub OAuth.
+3. ~~The web UI end to end with GitHub OAuth.~~ Done 2026-11-11.
 4. Teams through a dev tunnel.
 
 ## Local mode (agent-loom history)

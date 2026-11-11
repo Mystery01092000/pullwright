@@ -112,6 +112,7 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
 
             store.append(Event(ev["type"], ev.get("run_id") or f"{job.repo}#{job.issue}", ev.get("agent_id") or "run",
                                ev.get("payload") or {}, ev.get("parent_id"), ev.get("turn")))
+            intake.on_job_event(job.repo, job.issue, ev)
 
         dispatcher = Dispatcher(gh, runner_from_env(), repos, on_event=on_event, on_done=done)
         t = threading.Thread(target=dispatcher.serve, kwargs={"interval": float(os.environ.get("PULLWRIGHT_POLL_SECONDS", "30"))},

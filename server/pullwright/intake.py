@@ -200,6 +200,14 @@ class Intake:
         finally:
             self._pending.pop(rid, None)
 
+    def on_job_event(self, repo: str, number: int, event: dict[str, Any]) -> None:
+        """A runner event: the first sign of life moves the request from queued to working."""
+        if event.get("type") != "state" or (event.get("payload") or {}).get("state") not in ("setup", "working"):
+            return
+        req = self.store.request_for_issue(repo, number)
+        if req is not None and req["state"] == "queued":
+            self.store.update_request(req["id"], state="working")
+
     def on_job_done(self, repo: str, number: int, result: dict[str, Any] | None) -> None:
         """The dispatcher finished a job: tell the thread the task came from."""
         req = self.store.request_for_issue(repo, number)

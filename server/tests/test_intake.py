@@ -123,6 +123,10 @@ def test_mention_plans_waits_for_approval_and_opens_the_issue(setup):
     assert "Requested by** Asha Rao (@asha) via slack" in issue["body"]
     assert all(t == THREAD for t, _ in ch.replies)  # every reply went to the task's thread
 
+    intake.on_job_event("arcane/app", 1, {"type": "usage", "payload": {}})
+    assert store.request(rid)["state"] == "queued"
+    intake.on_job_event("arcane/app", 1, {"type": "state", "payload": {"state": "setup"}})
+    assert store.request(rid)["state"] == "working"  # the web Queue shows the runner on it
     intake.on_job_done("arcane/app", 1, {"status": "green", "pr_url": "https://github.com/arcane/app/pull/100"})
     assert "Pull request for #1: https://github.com/arcane/app/pull/100. All checks pass" in ch.replies[-1][1]
     assert store.request(rid)["state"] == "pr_open"
