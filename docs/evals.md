@@ -7,9 +7,12 @@ cd server
 uv run python -m evals.run                                   # all cases
 uv run python -m evals.run python-bugfix                     # one case
 uv run python -m evals.run --worker-model claude-haiku-5-5 --max-cost 1
+uv run python -m evals.run --pipeline local                   # the local-mode lifecycle instead
 ```
 
-**Every eval run spends real money.** Set a cap with `--max-cost`.
+The default `--pipeline team` measures what an approved issue goes through: describer + verifier plan (auto-approved), then the runner loop (Sonnet supervisor, Haiku workers, the case's checks as the project checks, independent review), with plan and work cost reported separately.
+
+**Every eval run spends real money.** Set a cap with `--max-cost`. For scale: `python-subtract` on the team pipeline passed for $0.072 ($0.042 plan, $0.030 work) in 60 seconds on 2026-11-11.
 
 ## A case
 

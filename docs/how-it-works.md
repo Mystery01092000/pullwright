@@ -147,6 +147,88 @@ When you click **Approve** (`intake.py` `on_decision`):
 
 Agents in the container can't `git push` or run `gh`: those commands are denied in their tool sandbox, and only the pipeline itself pushes.
 
+## When you comment on the PR: the follow-up loop
+
+A PR is rarely perfect the first time. Review it as you would a colleague's: leave inline comments on lines, submit a review, or write in the conversation. Pullwright works through the comments **on the same branch, continuing from what it already did**.
+
+```
+ you comment on PR #12 (inline, a review, or the conversation)
+   │  dispatcher, every 30 s: open PRs labeled `pullwright` -> new feedback from people with write access?
+   │  ...waits until no new comment has arrived for 2 minutes (so you can finish reviewing)
+   ├─ PR labeled pullwright:revising; container: pullwright-work --pr owner/repo#12
+   │     clone the PR's branch
+   │     context = the approved plan (from the issue)
+   │             + every earlier run's work log (what was done, checks, reviewer verdicts, comments handled)
+   │             + your new comments (inline ones with file, line and the diff hunk)
+   │     supervisor + workers address the comments -> checks -> reviewer checks the comments are addressed too
+   ├─ push to the same branch (the PR updates), reply "Addressed in <sha>" on each inline comment
+   ├─ new work-log comment on the PR; label back to pr-open (or failed)
+   └─ "Updated PR #12 after review: 3 comments addressed, all checks pass" in your original thread
+```
+
+**What is saved, and where.** The context a follow-up needs lives on GitHub, next to the code:
+- **The plan:** the approved plan stays in the issue's hidden block.
+- **The work so far:** this is the branch's commits.
+- **What happened:** after every run the bot posts a **work-log comment** on the PR. It's readable (status, rounds, checks, reviewer verdict, comments addressed, the supervisor's report) and ends with a hidden `<!-- pullwright-log:{...} -->` block for the next run. It records `handled_until` and the ids of the comments it handled, so the next run neither misses a comment nor repeats one.
+
+The SQLite event log keeps the full trace of every agent call for the web UI, but runners don't need it. That's how a follow-up on another machine (or a later EC2 runner) still has the whole story.
+
+**Which comments count.**
+- **Who:** only people with **write access** to the repository count. Bots, Pullwright itself and read-only users are ignored, so a stranger's comment on a public repository can't steer the agents.
+- **What:** inline review comments, review summaries with text (an approval with no text is not a request), and conversation comments.
+- **Skipping one:** start a comment with `@pullwright ignore` to discuss without triggering a run.
+- **Mention-only mode:** with `PULLWRIGHT_FEEDBACK_TRIGGER=mention`, only comments that mention `@pullwright` count.
+- **Debounce:** `PULLWRIGHT_FEEDBACK_QUIET_SECONDS` (default 120) sets how long to wait after the newest comment.
+- **Priority:** follow-ups are served before new issues, because finishing work in progress comes first. They share the same `PULLWRIGHT_MAX_PARALLEL` limit.
+
+Code: `dispatcher.py` (`feedback_job`), `github/feedback.py` (`collect`, `brief`), `worklog.py`, `runner/job.py` (`run_feedback`), and `pipeline/work.py` (`WorkRun(branch=..., context=...)`).
+
+## Choosing the repository: the knowledge base
+
+You don't have to name the repository. "Add a dark mode toggle to my portfolio" or "fix rounding in order totals" is enough when Pullwright works on several repositories.
+
+For each repository in `PULLWRIGHT_REPOS`, Pullwright builds a **profile** from the GitHub API, with no clone: the description, topics, languages, README and every file path. It's stored in SQLite and rebuilt after 24 hours (`knowledge.py`). A task without `owner/name:` is resolved like this:
+
+1. **Named.** If the repository's own name appears in the task ("…my **portfolio**"), that decides it.
+2. **Keywords.** Otherwise each word of the task scores in the profile fields it appears in.
+   - Fields are weighted: the name 5, topics and description 3, file paths 1.5, the README 1.
+   - Words are weighted by **rarity** across your repositories: a word every repository has says nothing.
+   - Code identifiers are split, so `OrderStore` matches `orders.py`.
+   - Verbs such as *add*, *fix* and *remove* are ignored.
+3. **Your history.** Repositories you've sent tasks for before get a small boost. History breaks ties between repositories that fit; **it never picks a repository on its own**.
+4. **Decision.**
+   - A clear winner is picked.
+   - A close call goes to **one Claude Haiku call** over the top three profiles. It has no tools, costs a fraction of a cent, and an answer outside the candidates is ignored.
+   - If nothing fits, the bot asks you, listing the likely repositories first.
+
+The bot always says what it chose and why, e.g. *"Picked `arcanetech-ai/portfolio` (the task names it). To use another repository, start the task with `owner/name:`."* A wrong guess is caught at the plan card, before anything is built. In the web UI the repository field is optional, with a picker of your repositories.
+
+## Skills, hooks and evals in this flow
+
+All three are configured per repository in `.pullwright/` (see [configuration](configuration.md)) and apply to every pipeline. The difference is *when* they act.
+
+**Skills: knowledge agents load when they need it.**
+- **What:** `.pullwright/skills/<name>/SKILL.md` holds a description plus instructions, for example "how we write database migrations here" or "how to add a feature flag".
+- **How it works:** every agent's system prompt lists each skill's one-line description. When the work touches that area, the agent calls the `load_skill(name)` tool and reads the full instructions. This is the same idea as Claude Code skills: the prompt stays small, and the detail is loaded only when relevant.
+- **Where it applies:** the planning agents (describer, verifier) in the control plane, and the supervisor, workers and reviewer in the runner. Skills are read from the clone of the repository, so they apply to that repository only.
+- **Code:** `config.py` (`Skill`, `system_prompt`) and `session.py` (`_load_skill_tool`, added to every agent when skills exist).
+
+**Hooks: your own commands around the agents.**
+- **What:** `.pullwright/hooks.json` lists shell commands that receive the event as JSON on stdin.
+- **`pre_tool`:** runs before a tool call (e.g. `match: "write_file|edit_file"`). A non-zero exit **blocks** the call, and its stderr is returned to the agent as the reason. Use it to protect generated files or migrations, or to enforce "never touch `infra/`".
+- **`post_tool`:** runs after a tool call, fire-and-forget. Use it for audit logs.
+- **`state`:** runs on every pipeline state, such as `describing`, `verifying`, `awaiting_approval`, `setup`, `working`, `checking`, `reviewing`, `green` and `failed`. Use it to notify a channel, record metrics or start something external.
+- **Where it applies:** `pre_tool` and `post_tool` apply to every agent everywhere. `state` hooks fire in planning (control plane), in runner jobs and follow-ups, and in local mode. Hooks run inside the environment the agent is in: on the runner they run in the container.
+- **Code:** `config.py` (`run_hooks`) and `session.py` (`ctx()` wires `pre_tool` and `post_tool`; `_state_hooks` handles `state`).
+
+**Evals: measuring changes before you trust them.**
+- **What:** evals are not part of a live task. They are how you check that a change to a prompt, a model or the pipeline makes Pullwright better rather than just different.
+- **How it works:** `cd server && uv run python -m evals.run` runs real tasks on throwaway repositories with real models. It grades each one with commands and reports pass/fail, cost and time per case.
+- **`--pipeline team` (default):** measures what an approved issue goes through. That's the describer and verifier plan (auto-approved), then the runner loop with the case's checks as the project checks, then the reviewer. Plan cost and work cost are reported separately.
+- **`--pipeline local`:** measures the local-mode lifecycle.
+- **When to run them:** run them before changing anything in `server/pullwright/defaults/agents/` or `models.py`, and put the before/after numbers in the PR ([CONTRIBUTING](../CONTRIBUTING.md)). They spend real money, so cap them with `--max-cost`. They aren't in CI for that reason; a nightly workflow is on the [roadmap](roadmap.md).
+- **Code:** `server/evals/run.py`; cases are in `server/evals/cases/*.json`.
+
 ## Where to look when something goes wrong
 
 | Symptom | Look at |
@@ -156,3 +238,5 @@ Agents in the container can't `git push` or run `gh`: those commands are denied 
 | runner failed | the comment the runner left on the issue; server log lines prefixed with `[owner/repo#n]` |
 | a check fails in the runner but not locally | the runner image lacks a tool your project needs; see [runners](runners.md) |
 | cost | the plan card, issue body, PR body and the web Queue view show it; the `events` table has every call |
+| a PR comment was not picked up | did the commenter have write access? is the PR labeled `pullwright`? was it within the quiet period? did it start with `@pullwright ignore`? the work-log comments show what the last run handled |
+| the wrong repository was picked | the bot's "Picked ... because ..." reply shows why; start the task with `owner/name:`, or improve the repository's description and topics on GitHub, which feed its profile |

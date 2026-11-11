@@ -26,9 +26,11 @@ There are two layers:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PULLWRIGHT_REPOS` | (none) | Comma-separated `owner/name`. The dispatcher watches these, and tasks for other repositories are refused. If it's empty, the dispatcher does not run. |
+| `PULLWRIGHT_REPOS` | (none) | Comma-separated `owner/name`. The dispatcher watches these, tasks for other repositories are refused, and the knowledge base profiles these to pick a repository when a task names none. If it's empty, the dispatcher does not run. |
 | `PULLWRIGHT_MAX_PARALLEL` | `1` | How many issues are implemented at once. |
-| `PULLWRIGHT_POLL_SECONDS` | `30` | How often the dispatcher looks for queued issues. |
+| `PULLWRIGHT_POLL_SECONDS` | `30` | How often the dispatcher looks for queued issues and PR feedback. |
+| `PULLWRIGHT_FEEDBACK_QUIET_SECONDS` | `120` | After the newest review comment on a Pullwright PR, how long to wait before a follow-up starts (lets a reviewer finish). |
+| `PULLWRIGHT_FEEDBACK_TRIGGER` | `any` | `any`: every comment from someone with write access is feedback; `mention`: only comments that mention `@pullwright`. A comment starting with `@pullwright ignore` never counts. |
 | `PULLWRIGHT_DISPATCHER` | `on` | Set to `off` to run a planning-only control plane. |
 | `PULLWRIGHT_RUNNER` | `docker` | `docker` (a container per issue) or `local` (a subprocess on this machine with **no isolation**; for development). |
 | `PULLWRIGHT_RUNNER_IMAGE` | `ghcr.io/mystery01092000/pullwright-runner:latest` | The image for Docker runners ([runners](runners.md)). |

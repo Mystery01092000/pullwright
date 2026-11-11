@@ -68,6 +68,9 @@ The queue is GitHub labels, so it is visible, editable and survives restarts:
 | `pullwright:working` | claimed by the dispatcher; a runner is on it |
 | `pullwright:pr-open` | the PR is open and every check passed |
 | `pullwright:failed` | the runner stopped red (draft PR or reason in a comment) |
+| `pullwright:revising` | on a PR: a runner is addressing review feedback |
+
+Pullwright PRs carry the `pullwright` label too, so the dispatcher can watch them for review feedback. A follow-up runs `pullwright-work --pr owner/repo#n` on the PR's branch with the plan, the earlier runs' work logs (bot comments on the PR) and the new comments as context. See [how a task flows](how-it-works.md#when-you-comment-on-the-pr-the-follow-up-loop).
 
 **Dispatcher** (`dispatcher.py`). Every `PULLWRIGHT_POLL_SECONDS`, and while there is capacity (`PULLWRIGHT_MAX_PARALLEL`, default 1), it:
 1. takes the **oldest** queued issue across the watched repositories;
