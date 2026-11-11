@@ -40,15 +40,17 @@ def _client(teams=None):
     intake = StubIntake(store)
     signer = Signer(b"s3cret")
     app = FastAPI()
-    app.include_router(build_router(intake, store, signer, teams, ("cid", "csecret"), "https://pw.example",
-                                    http=httpx.Client(transport=httpx.MockTransport(_github))))
+    auth, api = build_router(intake, store, signer, teams, ("cid", "csecret"), "https://pw.example",
+                             http=httpx.Client(transport=httpx.MockTransport(_github)))
+    app.include_router(auth)
+    app.include_router(api, prefix="/api")
     return TestClient(app, base_url="https://pw.example"), intake, store, signer
 
 
 def test_api_needs_a_login():
     c, *_ = _client()
-    assert c.get("/me").status_code == 401
-    assert c.post("/requests", json={"repo": "a/b", "task": "x"}).status_code == 401
+    assert c.get("/api/me").status_code == 401
+    assert c.post("/api/requests", json={"repo": "a/b", "task": "x"}).status_code == 401
 
 
 def test_github_login_sets_a_signed_session_cookie():
@@ -59,7 +61,7 @@ def test_github_login_sets_a_signed_session_cookie():
     r = c.get("/auth/github/callback", params={"code": "c", "state": q["state"][0]}, follow_redirects=False)
     assert r.headers["location"] == "/queue"
     assert signer.loads(r.cookies[COOKIE])["login"] == "asha"
-    assert c.get("/me").json() == {"login": "asha", "name": "Asha Rao"}
+    assert c.get("/api/me").json() == {"login": "asha", "name": "Asha Rao"}
     assert c.get("/auth/github/callback", params={"code": "c", "state": "forged.sig"}, follow_redirects=False).status_code == 400
 
 
@@ -79,16 +81,16 @@ def _logged_in(c, signer):
 def test_web_request_thread_and_decision():
     c, intake, store, signer = _client()
     _logged_in(c, signer)
-    r = c.post("/requests", json={"repo": "arcane/app", "task": "add hello"}).json()
+    r = c.post("/api/requests", json={"repo": "arcane/app", "task": "add hello"}).json()
     m = intake.mentions[0]
     assert m.user == ChatUser("web", "asha", "Asha Rao", "asha") and m.text == "arcane/app: add hello"
     WebChannel(store).show_plan({"thread": r["thread"]}, PlanCard("r1", "arcane/app", "add hello", "1. do it", 0, 0.05))
-    t = c.get(f"/threads/{r['thread']}").json()
+    t = c.get(f"/api/threads/{r['thread']}").json()
     assert [msg["kind"] for msg in t["messages"]] == ["user", "plan"] and t["request"]["id"] == "r1"
-    assert c.post("/requests/r1/decision", json={"decision": "approve"}).json() == {"message": "Approved. Opening the issue."}
+    assert c.post("/api/requests/r1/decision", json={"decision": "approve"}).json() == {"message": "Approved. Opening the issue."}
     assert intake.decisions[0].decision == "approve" and intake.decisions[0].user.github_login == "asha"
-    assert c.post("/requests/r1/decision", json={"decision": "merge"}).status_code == 422
-    assert [x["id"] for x in c.get("/requests").json()] == ["r1"]
+    assert c.post("/api/requests/r1/decision", json={"decision": "merge"}).status_code == 422
+    assert [x["id"] for x in c.get("/api/requests").json()] == ["r1"]
 
 
 class StubTeams:
@@ -111,6 +113,6 @@ def test_teams_webhook_rejects_unsigned_calls():
     teams = StubTeams()
     c, *_ = _client(teams)
     act = {"type": "message", "serviceUrl": "https://smba.example"}
-    assert c.post("/teams/messages", json=act).status_code == 401
-    assert c.post("/teams/messages", json=act, headers={"Authorization": "Bearer good"}).status_code == 200
+    assert c.post("/api/teams/messages", json=act).status_code == 401
+    assert c.post("/api/teams/messages", json=act, headers={"Authorization": "Bearer good"}).status_code == 200
     assert teams.handled == [act]

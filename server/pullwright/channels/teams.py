@@ -1,6 +1,6 @@
 """Microsoft Teams, over the Bot Framework REST protocol (no SDK).
 
-Inbound: Teams POSTs activities to /teams/messages with a bearer JWT signed by the Bot Framework; we verify
+Inbound: Teams POSTs activities to /api/teams/messages with a bearer JWT signed by the Bot Framework; we verify
 it against the published signing keys and our app id. Outbound: we get an app token from Entra ID (client
 credentials) and POST replies to the conversation's serviceUrl. The plan is an Adaptive Card whose Submit
 actions come back as a message activity carrying `value`.

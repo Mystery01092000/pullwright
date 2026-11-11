@@ -58,8 +58,14 @@ def runner_from_env() -> Any:
 
 
 def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
-    """Wire the control plane. Returns the FastAPI app and the started components (for tests and shutdown)."""
+    """Wire the control plane. Returns the root FastAPI app and the started components (for tests and shutdown).
+
+        /auth/*, /link      GitHub login and chat-account linking (browser navigations)
+        /api/*              the JSON API: local runs, team requests, queue, the Teams webhook
+        /                   the built web UI (web/dist), when present
+    """
     import anthropic
+    from fastapi import FastAPI
 
     from .api import app
 
@@ -86,7 +92,16 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
         parts["teams"] = teams
 
     oauth = (os.environ["GITHUB_OAUTH_CLIENT_ID"], os.environ["GITHUB_OAUTH_CLIENT_SECRET"]) if os.environ.get("GITHUB_OAUTH_CLIENT_ID") else None
-    app.include_router(build_router(intake, store, Signer(secret), teams, oauth, public))
+    auth_routes, api_routes = build_router(intake, store, Signer(secret), teams, oauth, public)
+    app.include_router(api_routes)
+    root = FastAPI(title="pullwright")
+    root.include_router(auth_routes)
+    root.mount("/api", app)
+    dist = Path(os.environ.get("PULLWRIGHT_WEB_DIST", Path(__file__).resolve().parents[2] / "web" / "dist"))
+    if (dist / "index.html").is_file():
+        from fastapi.staticfiles import StaticFiles
+
+        root.mount("/", StaticFiles(directory=dist, html=True), name="web")
 
     if repos and os.environ.get("PULLWRIGHT_DISPATCHER", "on") != "off":
         def done(job: Job, outcome: JobOutcome) -> None:
@@ -103,7 +118,7 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
                              name="dispatcher", daemon=True)
         t.start()
         parts["dispatcher"] = dispatcher
-    return app, parts
+    return root, parts
 
 
 def main() -> None:

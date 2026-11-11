@@ -3,7 +3,7 @@
 - GitHub OAuth login; the session is a signed cookie carrying the GitHub login (no server-side sessions).
 - /link?token=...: the page a chat user lands on to bind their Slack or Teams id to their GitHub account.
 - /requests, /threads/{id}: the web UI's chat: send a task for a repository, read the bot's messages, approve or revise.
-- /teams/messages: the Teams webhook (set it as the bot's messaging endpoint).
+- /api/teams/messages: the Teams webhook (set it as the bot's messaging endpoint).
 
 Env: PULLWRIGHT_SECRET (signs cookies and link tokens), PULLWRIGHT_PUBLIC_URL (e.g. https://pullwright.arcane.tech),
 GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET.
@@ -77,8 +77,10 @@ class DecisionBody(BaseModel):
 
 
 def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | None = None,
-                 oauth: tuple[str, str] | None = None, public_url: str = "", http: httpx.Client | None = None) -> APIRouter:
-    r = APIRouter()
+                 oauth: tuple[str, str] | None = None, public_url: str = "", http: httpx.Client | None = None) -> tuple[APIRouter, APIRouter]:
+    """Two routers: `auth` (browser navigations: login, callback, link, logout) belongs at the site root;
+    `api` (JSON for the web UI, and the Teams webhook) belongs under /api."""
+    a, r = APIRouter(), APIRouter()
     http = http or httpx.Client(timeout=30)
 
     def me(request: Request) -> dict[str, Any]:
@@ -92,7 +94,7 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
 
     # --- login ----------------------------------------------------------------------------------
 
-    @r.get("/auth/github/login")
+    @a.get("/auth/github/login")
     def login(next: str = "/", link: str = "") -> RedirectResponse:
         if oauth is None:
             raise HTTPException(503, "GitHub login is not configured (GITHUB_OAUTH_CLIENT_ID / _SECRET)")
@@ -100,7 +102,7 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         q = urlencode({"client_id": oauth[0], "redirect_uri": f"{public_url}/auth/github/callback", "scope": "read:user", "state": state})
         return RedirectResponse(f"https://github.com/login/oauth/authorize?{q}")
 
-    @r.get("/auth/github/callback")
+    @a.get("/auth/github/callback")
     def callback(code: str, state: str) -> RedirectResponse:
         st = signer.loads(state)
         if st is None or oauth is None:
@@ -120,11 +122,11 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
                         httponly=True, samesite="lax", secure=public_url.startswith("https://"))
         return resp
 
-    @r.get("/link")
+    @a.get("/link")
     def link(token: str) -> RedirectResponse:
         return RedirectResponse(f"/auth/github/login?{urlencode({'link': token})}")
 
-    @r.post("/auth/logout")
+    @a.post("/auth/logout")
     def logout() -> JSONResponse:
         resp = JSONResponse({"ok": True})
         resp.delete_cookie(COOKIE)
@@ -188,7 +190,7 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         background.add_task(teams.handle_activity, activity)  # answer Teams within its timeout; work continues
         return {}
 
-    return r
+    return a, r
 
 
 def secret_from_env() -> bytes:
