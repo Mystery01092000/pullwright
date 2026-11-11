@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS requests (
   issue_url TEXT DEFAULT '', pr_url TEXT DEFAULT '', error TEXT DEFAULT '', cost_usd REAL DEFAULT 0, created_at REAL
 );
 CREATE INDEX IF NOT EXISTS requests_issue ON requests(repo, issue_number);
+CREATE TABLE IF NOT EXISTS thread_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id TEXT, kind TEXT, body TEXT, ts REAL
+);
+CREATE INDEX IF NOT EXISTS thread_messages_thread ON thread_messages(thread_id, id);
 CREATE TABLE IF NOT EXISTS identities (
   channel TEXT, channel_user_id TEXT, github_login TEXT, name TEXT, linked_at REAL,
   PRIMARY KEY (channel, channel_user_id)
@@ -159,3 +163,17 @@ class Store:
         with self.lock:
             row = self.db.execute("SELECT * FROM identities WHERE channel = ? AND channel_user_id = ?", (channel, channel_user_id)).fetchone()
         return dict(row) if row else None
+
+    # --- web chat threads: what the bot said, so the web UI can show it like a chat --------------
+
+    def add_message(self, thread_id: str, kind: str, body: Any) -> int:
+        with self.lock:
+            cur = self.db.execute("INSERT INTO thread_messages (thread_id, kind, body, ts) VALUES (?,?,?,?)",
+                                  (thread_id, kind, json.dumps(body, default=str), time.time()))
+            self.db.commit()
+            return int(cur.lastrowid or 0)
+
+    def messages(self, thread_id: str, after: int = 0) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.db.execute("SELECT * FROM thread_messages WHERE thread_id = ? AND id > ? ORDER BY id", (thread_id, after)).fetchall()
+        return [{"id": r["id"], "kind": r["kind"], "body": json.loads(r["body"]), "ts": r["ts"]} for r in rows]

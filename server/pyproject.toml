@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 pullwright = "pullwright.cli:main"
 pullwright-work = "pullwright.runner.job:main"
+pullwright-serve = "pullwright.serve:main"
 
 [dependency-groups]
 dev = [
