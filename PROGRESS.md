@@ -7,16 +7,16 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | Item | Dev | Tested | Live | Pushed | Notes |
 |---|---|---|---|---|---|
 | Rename agent-loom → pullwright, `.pullwright/` config (`.harness/` still read) | x | x | n/a | | |
-| Role models: Sonnet main roles, Haiku workers; fallbacks only where supported | x | x | | | Haiku 5.5 has no server-side refusal fallback |
+| Role models: Sonnet main roles, Haiku workers; fallbacks only where supported | x | x | x | | Haiku 5.5 has no server-side refusal fallback |
 | `Session`: shared agent building, guardrails, budgets, spawn_worker | x | x | n/a | | lifecycle.Run uses it |
-| Planning: describer + verifier + review loop | x | x | | | |
-| Work loop: supervisor + Haiku workers → checks → review, bounded | x | x | | | |
+| Planning: describer + verifier + review loop | x | x | x | | |
+| Work loop: supervisor + Haiku workers → checks → review, bounded | x | x | x | | |
 | Checks detection + `.pullwright/checks.json`, failure excerpts | x | x | n/a | | |
 | Repo map | x | x | n/a | | |
-| GitHub App auth (per-repo tokens), issues as queue, PRs | x | x | | | |
-| Runner job (`pullwright-work`): clone, work, push, PR | x | x | | | tested against a bare repo and fake GitHub |
-| Docker runner + runner image | x | x | partial | | image built and smoke-tested locally (uid 1000, node 22, uv, git) |
-| Dispatcher: oldest first, one at a time | x | x | | | |
+| GitHub App auth (per-repo tokens), issues as queue, PRs | x | x | x | | |
+| Runner job (`pullwright-work`): clone, work, push, PR | x | x | x | | tested against a bare repo and fake GitHub |
+| Docker runner + runner image | x | x | x | | image built and smoke-tested locally (uid 1000, node 22, uv, git) |
+| Dispatcher: oldest first, one at a time | x | x | x | | |
 | Intake: requests, account linking, approval by write access | x | x | | | |
 | Slack channel (Socket Mode, Block Kit, revise modal) | x | x | | | needs a Slack app (deploy/slack-manifest.yml) |
 | Teams channel (Bot Framework REST, Adaptive Card, JWT verification) | x | x | | | needs an Azure Bot registration |
@@ -29,9 +29,15 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 
 79 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
 
+## Live runs
+
+| Date | Task | Result |
+|---|---|---|
+| 2026-11-11 | arcanetech-ai/pullwright-sandbox#1: `OrderStore.remove` + half-up percentage discount, with tests | Plan: 9 Sonnet calls, $0.088, verifier approved. Runner: Docker, `uv sync` 4s, 1 Haiku worker, lint+tests green in round 1, review complete. PR #2 ready, `Closes #1`, review requested from the requester, commits by pullwright[bot]. **$0.135 total, 72s runner time.** |
+
 ## To verify live
 
-1. A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.
+1. ~~A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.~~ Done 2026-11-11.
 2. A Slack test workspace: mention → plan card → approve → PR link in the thread.
 3. The web UI end to end with GitHub OAuth.
 4. Teams through a dev tunnel.
