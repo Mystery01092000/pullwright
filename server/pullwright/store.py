@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS events (
   type TEXT, payload TEXT, ts REAL
 );
 CREATE INDEX IF NOT EXISTS events_run ON events(run_id, id);
+CREATE TABLE IF NOT EXISTS requests (
+  id TEXT PRIMARY KEY, channel TEXT, repo TEXT, task TEXT, requester_login TEXT, requester_name TEXT,
+  thread_ref TEXT, thread_url TEXT DEFAULT '', state TEXT, plan TEXT DEFAULT '', issue_number INTEGER,
+  issue_url TEXT DEFAULT '', pr_url TEXT DEFAULT '', error TEXT DEFAULT '', cost_usd REAL DEFAULT 0, created_at REAL
+);
+CREATE INDEX IF NOT EXISTS requests_issue ON requests(repo, issue_number);
+CREATE TABLE IF NOT EXISTS identities (
+  channel TEXT, channel_user_id TEXT, github_login TEXT, name TEXT, linked_at REAL,
+  PRIMARY KEY (channel, channel_user_id)
+);
 """
 
 
@@ -94,3 +104,58 @@ class Store:
             by_model = [dict(r) for r in self.db.execute(q.format(grp="json_extract(payload,'$.model')"), (run_id,))]
         total = {k: sum(r[k] or 0 for r in by_agent) for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "cost_usd", "calls")}
         return {"total": total, "by_agent": by_agent, "by_model": by_model}
+
+    # --- chat requests (one per task sent from Slack, Teams or the web) --------------------------
+
+    def create_request(self, rid: str, channel: str, repo: str, task: str, login: str, name: str, thread_ref: dict[str, Any], thread_url: str = "") -> None:
+        with self.lock:
+            self.db.execute(
+                "INSERT INTO requests (id, channel, repo, task, requester_login, requester_name, thread_ref, thread_url, state, created_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (rid, channel, repo, task, login, name, json.dumps(thread_ref), thread_url, "planning", time.time()),
+            )
+            self.db.commit()
+
+    def update_request(self, rid: str, **fields: Any) -> None:
+        if "plan" in fields and not isinstance(fields["plan"], str):
+            fields["plan"] = json.dumps(fields["plan"])
+        cols = ", ".join(f"{k} = ?" for k in fields)
+        with self.lock:
+            self.db.execute(f"UPDATE requests SET {cols} WHERE id = ?", (*fields.values(), rid))
+            self.db.commit()
+
+    def _request_row(self, row: sqlite3.Row | None) -> dict[str, Any] | None:
+        if row is None:
+            return None
+        d = dict(row)
+        d["thread_ref"] = json.loads(d["thread_ref"] or "{}")
+        d["plan"] = json.loads(d["plan"]) if d["plan"] else None
+        return d
+
+    def request(self, rid: str) -> dict[str, Any] | None:
+        with self.lock:
+            return self._request_row(self.db.execute("SELECT * FROM requests WHERE id = ?", (rid,)).fetchone())
+
+    def request_for_issue(self, repo: str, number: int) -> dict[str, Any] | None:
+        with self.lock:
+            return self._request_row(self.db.execute("SELECT * FROM requests WHERE repo = ? AND issue_number = ?", (repo, number)).fetchone())
+
+    def requests(self, login: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        q, args = "SELECT * FROM requests", []
+        if login:
+            q, args = q + " WHERE requester_login = ?", [login]
+        with self.lock:
+            rows = self.db.execute(q + " ORDER BY created_at DESC LIMIT ?", (*args, limit)).fetchall()
+        return [self._request_row(r) for r in rows]
+
+    # --- who is who: chat user -> GitHub login --------------------------------------------------
+
+    def link_identity(self, channel: str, channel_user_id: str, github_login: str, name: str) -> None:
+        with self.lock:
+            self.db.execute("INSERT OR REPLACE INTO identities VALUES (?,?,?,?,?)", (channel, channel_user_id, github_login, name, time.time()))
+            self.db.commit()
+
+    def identity(self, channel: str, channel_user_id: str) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.db.execute("SELECT * FROM identities WHERE channel = ? AND channel_user_id = ?", (channel, channel_user_id)).fetchone()
+        return dict(row) if row else None
