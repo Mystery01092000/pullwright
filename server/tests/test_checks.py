@@ -15,6 +15,26 @@ def test_detects_a_uv_python_project(tmp_path: Path):
     assert plan.checks == {"lint": "uv run ruff check .", "test": "uv run pytest -q"}
 
 
+def test_detects_pytest_from_standalone_test_modules(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
+    for filename in ("test_widget.py", "widget_test.py"):
+        (tmp_path / filename).write_text("")
+        assert checks.detect(tmp_path).checks == {"test": "python -m pytest -q"}
+        (tmp_path / filename).unlink()
+
+
+def test_detects_pytest_configuration_files(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
+    for filename, content in (
+        ("pytest.ini", ""),
+        ("setup.cfg", "[tool:pytest]\n"),
+        ("tox.ini", "[tox]\n"),
+    ):
+        (tmp_path / filename).write_text(content)
+        assert checks.detect(tmp_path).checks == {"test": "python -m pytest -q"}
+        (tmp_path / filename).unlink()
+
+
 def test_detects_node_scripts_with_the_lockfiles_runner(tmp_path: Path):
     (tmp_path / "package.json").write_text(json.dumps({"scripts": {"build": "vite build", "test": "vitest", "lint": "eslint ."}}))
     (tmp_path / "pnpm-lock.yaml").write_text("")
