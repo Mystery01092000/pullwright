@@ -25,6 +25,7 @@ from .agent import AgentDef, run_agent
 from .config import load_config
 from .events import Event, EventBus
 from .lifecycle import Run, thread_context
+from .models import MAIN_MODEL, WORKER_MODEL
 from .tools import ToolContext
 
 console = Console(highlight=False)
@@ -237,8 +238,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="pullwright", description="Intake → confirm → supervisor + workers → diagnosis → summary → branch/PR. With no task, opens an interactive session.")
     ap.add_argument("task", nargs="?", help="a first task to run; omit to just open the prompt")
     ap.add_argument("--cwd", default=".", help="repository to work in (default: current directory)")
-    ap.add_argument("--model", default="claude-opus-5-5", help="model for intake, supervisor, diagnosis and summary")
-    ap.add_argument("--worker-model", default="claude-sonnet-5-5", help="model for workers")
+    ap.add_argument("--model", default=MAIN_MODEL, help="model for intake, supervisor, diagnosis and summary")
+    ap.add_argument("--worker-model", default=WORKER_MODEL, help="model for workers")
     ap.add_argument("--max-cost", type=float, default=20.0, metavar="USD", help="stop a run past this spend")
     ap.add_argument("--worker", action="store_true", help="run a single worker agent on the task, no lifecycle (needs a task)")
     ap.add_argument("--once", action="store_true", help="run the task and exit instead of opening the prompt")

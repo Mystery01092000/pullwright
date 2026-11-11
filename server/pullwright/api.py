@@ -22,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from .events import Event, EventBus
 from .lifecycle import Run, thread_context
+from .models import MAIN_MODEL, WORKER_MODEL
 from .mcp_tools import load_mcp
 from .store import Store
 
@@ -63,8 +64,8 @@ class LiveRun:
 class StartRun(BaseModel):
     task: str
     cwd: str = "."
-    main_model: str = "claude-opus-5-5"
-    worker_model: str = "claude-sonnet-5-5"
+    main_model: str = MAIN_MODEL
+    worker_model: str = WORKER_MODEL
     max_cost_usd: float = 20.0
     continue_from: str | None = None  # id of a finished run in the thread to continue
 

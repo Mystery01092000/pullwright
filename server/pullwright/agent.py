@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .events import Event, EventBus
+from .models import MAIN_MODEL, supports_fallbacks
 from .pricing import cost_usd
 from .tools import ALL_TOOLS, TOOLS, Registry, ToolContext, execute, schemas
 
@@ -17,7 +18,7 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 class AgentDef:
     name: str
     system: str
-    model: str = "claude-opus-5-5"
+    model: str = MAIN_MODEL
     effort: str = "high"  # low | medium | high | xhigh | max
     tools: list[str] = field(default_factory=lambda: list(ALL_TOOLS))
     max_turns: int = 50
@@ -68,6 +69,8 @@ def run_agent(
     emit("agent_start", name=agent.name, model=agent.model, effort=agent.effort, tools=agent.tools)
     registry: Registry = {**TOOLS, **agent.extra_tools}
     output_config: dict[str, Any] = {"effort": agent.effort}
+    # Server-side refusal fallback where the model has one (Claude Haiku 5.5 does not).
+    fallback: dict[str, Any] = {"betas": [FALLBACK_BETA], "fallbacks": "default"} if supports_fallbacks(agent.model) else {}
     if agent.output_schema:
         output_config["format"] = {"type": "json_schema", "schema": agent.output_schema}
 
@@ -84,8 +87,7 @@ def run_agent(
             tools=schemas(agent.tools, registry),
             thinking={"type": "adaptive", "display": "summarized"},
             output_config=output_config,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",
+            **fallback,
         ) as stream:
             for ev in stream:
                 if ev.type == "content_block_delta":

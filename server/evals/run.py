@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from pullwright.lifecycle import Run
+from pullwright.models import MAIN_MODEL, WORKER_MODEL
 
 HERE = Path(__file__).parent
 CASES = HERE / "cases"
@@ -103,8 +104,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cases", nargs="*", help="case names (default: all)")
     ap.add_argument("--max-cost", type=float, default=None, help="per-case dollar cap")
-    ap.add_argument("--main-model", default="claude-opus-5-5")
-    ap.add_argument("--worker-model", default="claude-sonnet-5-5")
+    ap.add_argument("--main-model", default=MAIN_MODEL)
+    ap.add_argument("--worker-model", default=WORKER_MODEL)
     a = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")

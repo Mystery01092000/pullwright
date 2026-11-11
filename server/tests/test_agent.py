@@ -35,8 +35,16 @@ def test_tool_loop_and_events(tmp_path: Path):
     assert res.messages[2]["content"][0]["tool_use_id"] == "tu_1"
     # request shape
     kw = client.calls[0]
-    assert kw["model"] == "claude-opus-5-5" and kw["thinking"]["display"] == "summarized"
+    assert kw["model"] == "claude-sonnet-5-5" and kw["thinking"]["display"] == "summarized"
     assert kw["fallbacks"] == "default" and all(t["strict"] for t in kw["tools"])
+
+
+def test_haiku_requests_carry_no_refusal_fallback(tmp_path: Path):
+    """Claude Haiku 5.5 has no server-side fallback, so the worker's request must not name one."""
+    _, _, client = _run(tmp_path, [turn(text("ok"), model="claude-haiku-5-5")], model="claude-haiku-5-5", effort="medium")
+    kw = client.calls[0]
+    assert kw["model"] == "claude-haiku-5-5"
+    assert "fallbacks" not in kw and "betas" not in kw
 
 
 def test_usage_and_cost(tmp_path: Path):

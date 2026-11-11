@@ -15,6 +15,7 @@ from . import git
 from .agent import AgentDef, RunResult, run_agent
 from .config import HarnessConfig, load_config
 from .events import Event, EventBus
+from .models import MAIN_MODEL, WORKER_MODEL
 from .tools import TOOLS, ToolContext, ToolError
 
 INTAKE_SCHEMA = {
@@ -70,8 +71,8 @@ class Run:
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     thread_id: str = ""  # runs that continue each other share a thread; empty = own id
     prior_context: str = ""  # what happened in the earlier run(s) of the thread, for a continuation
-    worker_model: str = "claude-sonnet-5-5"
-    main_model: str = "claude-opus-5-5"
+    worker_model: str = WORKER_MODEL
+    main_model: str = MAIN_MODEL
     max_cost_usd: float = 20.0
     state: str = "created"
     intake: dict[str, Any] | None = None
