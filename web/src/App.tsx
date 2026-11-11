@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, type RunRow } from './api'
 import { Chat, NewTaskComposer } from './Chat'
 import { usd } from './model'
+import { LoginScreen, QueueView, RequestsMain, RequestsSidebar, useMe } from './Requests'
+
+type Mode = 'team' | 'queue' | 'local'
 
 type Thread = { id: string; task: string; state: string; cost: number; created_at: number; runs: RunRow[] }
 
@@ -13,6 +16,10 @@ export default function App() {
   const [cwd, setCwd] = useState(localStorage.getItem('cwd') ?? '')
   const [maxCost, setMaxCost] = useState(Number(localStorage.getItem('maxCost') ?? 20))
   const [sidebar, setSidebar] = useState(true)
+  const [mode, setModeState] = useState<Mode>((localStorage.getItem('pw.mode') as Mode) ?? 'team')
+  const [thread, setThread] = useState<string | null>(new URLSearchParams(location.search).get('thread'))
+  const me = useMe()
+  const setMode = (m: Mode) => { localStorage.setItem('pw.mode', m); setModeState(m) }
 
   const refresh = () => api.runs().then(setRuns).catch(() => {})
   useEffect(() => { refresh(); const t = setInterval(refresh, 3000); return () => clearInterval(t) }, [])
@@ -47,8 +54,16 @@ export default function App() {
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <span className="h-3 w-3 rounded-[4px]" style={{ background: 'linear-gradient(160deg,#e8f6ff,#5fb2f2)', boxShadow: '0 0 12px rgba(95,178,242,.6)' }} />
           <span className="font-semibold tracking-tight">Pullwright</span>
-          <button className="pill r-sm ml-auto px-2.5 py-1 text-xs" onClick={() => setSel(null)}>+ New</button>
+          <button className="pill r-sm ml-auto px-2.5 py-1 text-xs" onClick={() => (mode === 'local' ? setSel(null) : (setMode('team'), setThread(null)))}>+ New</button>
         </div>
+        <div className="mx-3 mb-2 flex gap-1 text-xs" role="tablist">
+          {(['team', 'queue', 'local'] as Mode[]).map((m) => (
+            <button key={m} role="tab" aria-selected={mode === m} className="r-sm flex-1 px-2 py-1 transition hover:bg-white/5"
+              style={{ background: mode === m ? 'rgba(255,255,255,.1)' : undefined, color: mode === m ? 'var(--text)' : 'var(--muted)' }}
+              onClick={() => setMode(m)}>{m === 'team' ? 'Requests' : m === 'queue' ? 'Queue' : 'Local runs'}</button>
+          ))}
+        </div>
+        {mode !== 'local' ? (me ? <RequestsSidebar me={me} sel={thread} onSelect={setThread} /> : <div className="flex-1" />) : (<>
         <div className="min-h-0 flex-1 overflow-auto px-2 py-1">
           {threads.map((t) => (
             <button key={t.id} className="r-sm mb-1 block w-full px-3 py-2 text-left text-sm transition hover:bg-white/5" style={{ background: sel === t.id ? 'rgba(255,255,255,.08)' : undefined }} onClick={() => setSel(t.id)}>
@@ -69,10 +84,13 @@ export default function App() {
             <input className={field} style={fieldStyle} type="number" value={maxCost} onChange={(e) => setMaxCost(Number(e.target.value))} />
           </label>
         </div>
+        </>)}
       </aside>
       <main className="relative min-h-0 min-w-0 flex-1">
         <button aria-label="Toggle sidebar" className="r-sm absolute left-1 top-1 z-10 px-2 py-1 text-sm hover:bg-white/5" style={{ color: 'var(--muted)' }} onClick={() => setSidebar(!sidebar)}>☰</button>
-        {current ? (
+        {mode !== 'local' ? (
+          me === undefined ? null : me === null ? <LoginScreen /> : mode === 'queue' ? <QueueView /> : <RequestsMain sel={thread} onSelect={setThread} />
+        ) : current ? (
           <Chat key={current.id} runs={current.runs} onSubmit={start} />
         ) : (
           <div className="mx-auto flex h-full max-w-3xl flex-col justify-center px-4">

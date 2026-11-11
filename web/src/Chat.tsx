@@ -102,8 +102,8 @@ export const KINDS = [
   { label: 'Refactor', icon: 'code' as const },
   { label: 'Review', icon: 'eye' as const },
 ]
-export const MODELS = ['Opus 5.5', 'Sonnet 5.5', 'Fable 5.1']
-export const MODEL_IDS: Record<string, string> = { 'Opus 5.5': 'claude-opus-5-5', 'Sonnet 5.5': 'claude-sonnet-5-5', 'Fable 5.1': 'claude-fable-5-1' }
+export const MODELS = ['Sonnet 5.5', 'Opus 5.5', 'Haiku 5.5', 'Fable 5.2']
+export const MODEL_IDS: Record<string, string> = { 'Sonnet 5.5': 'claude-sonnet-5-5', 'Opus 5.5': 'claude-opus-5-5', 'Haiku 5.5': 'claude-haiku-5-5', 'Fable 5.2': 'claude-fable-5-2' }
 const EXAMPLES = [
   'Add rate limiting to the public API, with tests and a config flag...',
   'Fix the flaky checkout test and explain what was racing...',

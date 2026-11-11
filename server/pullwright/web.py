@@ -2,8 +2,8 @@
 
 - GitHub OAuth login; the session is a signed cookie carrying the GitHub login (no server-side sessions).
 - /link?token=...: the page a chat user lands on to bind their Slack or Teams id to their GitHub account.
-- /api/requests: the web UI's chat: send a task for a repository, read the bot's messages, approve or revise.
-- /api/teams/messages: the Teams webhook.
+- /requests, /threads/{id}: the web UI's chat: send a task for a repository, read the bot's messages, approve or revise.
+- /teams/messages: the Teams webhook (set it as the bot's messaging endpoint).
 
 Env: PULLWRIGHT_SECRET (signs cookies and link tokens), PULLWRIGHT_PUBLIC_URL (e.g. https://pullwright.arcane.tech),
 GITHUB_OAUTH_CLIENT_ID, GITHUB_OAUTH_CLIENT_SECRET.
@@ -130,14 +130,14 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         resp.delete_cookie(COOKIE)
         return resp
 
-    @r.get("/api/me")
+    @r.get("/me")
     def whoami(request: Request) -> dict[str, Any]:
         u = me(request)
         return {"login": u["login"], "name": u.get("name", u["login"])}
 
     # --- requests (the web chat) ----------------------------------------------------------------
 
-    @r.post("/api/requests")
+    @r.post("/requests")
     def create(body: NewRequest, request: Request) -> dict[str, Any]:
         u = me(request)
         thread = uuid.uuid4().hex[:12]
@@ -145,18 +145,18 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         rid = intake.on_mention(Mention(chat_user(u), f"{body.repo}: {body.task}", {"thread": thread}, f"{public_url}/?thread={thread}"))
         return {"thread": thread, "request_id": rid}
 
-    @r.get("/api/requests")
+    @r.get("/requests")
     def mine(request: Request) -> list[dict[str, Any]]:
         return store.requests(me(request)["login"])
 
-    @r.get("/api/threads/{thread}")
+    @r.get("/threads/{thread}")
     def thread_messages(thread: str, request: Request, after: int = 0) -> dict[str, Any]:
         me(request)
         msgs = store.messages(thread, after)
         req = next((x for x in store.requests(None, 500) if x["thread_ref"].get("thread") == thread), None)
         return {"request": req, "messages": msgs}
 
-    @r.post("/api/requests/{rid}/decision")
+    @r.post("/requests/{rid}/decision")
     def decide(rid: str, body: DecisionBody, request: Request) -> dict[str, str]:
         u = me(request)
         if body.decision not in ("approve", "revise", "cancel"):
@@ -169,14 +169,14 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
             store.add_message(req["thread_ref"]["thread"], "user", {"text": f"{body.decision}" + (f": {body.feedback}" if body.feedback else ""), "login": u["login"]})
         return {"message": msg}
 
-    @r.get("/api/queue")
+    @r.get("/queue")
     def queue(request: Request) -> list[dict[str, Any]]:
         me(request)
         return [x for x in store.requests(None, 500) if x["state"] in ("queued", "working", "pr_open", "pr_draft", "failed")]
 
     # --- Teams webhook --------------------------------------------------------------------------
 
-    @r.post("/api/teams/messages")
+    @r.post("/teams/messages")
     async def teams_messages(request: Request, background: BackgroundTasks) -> dict[str, Any]:
         if teams is None:
             raise HTTPException(404, "Teams is not configured")

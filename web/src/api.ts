@@ -1,4 +1,4 @@
-// Hand-written mirror of server/pullwright/{api,events,store}.py. Regenerate with openapi-typescript if it drifts.
+// Hand-written mirror of server/pullwright/{api,web,events,store}.py. Regenerate with openapi-typescript if it drifts.
 const BASE = import.meta.env.VITE_API ?? '/api'
 
 export type Ev = {
@@ -62,3 +62,47 @@ export const api = {
     return () => es.close()
   },
 }
+
+// --- the team flow: chat requests -> approved issues -> runner PRs (server/pullwright/web.py) ---
+
+export type Me = { login: string; name: string }
+
+export type RequestRow = {
+  id: string
+  channel: string
+  repo: string
+  task: string
+  requester_login: string
+  requester_name: string
+  thread_ref: Record<string, any>
+  thread_url: string
+  state: string // planning | awaiting_approval | queued | pr_open | pr_draft | cancelled | failed
+  plan: Record<string, any> | null
+  issue_number: number | null
+  issue_url: string
+  pr_url: string
+  error: string
+  cost_usd: number
+  created_at: number
+}
+
+export type PlanCardBody = { request_id: string; repo: string; task: string; plan_markdown: string; revision: number; cost_usd: number; questions: string[] }
+export type ThreadMessage = { id: number; kind: 'user' | 'reply' | 'plan'; body: any; ts: number }
+
+const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+
+export const team = {
+  me: async (): Promise<Me | null> => {
+    const r = await fetch(`${BASE}/me`)
+    return r.status === 401 ? null : j<Me>(Promise.resolve(r))
+  },
+  loginUrl: (next = '/') => `/auth/github/login?next=${encodeURIComponent(next)}`,
+  logout: () => j<{ ok: true }>(fetch('/auth/logout', { method: 'POST' })),
+  requests: () => j<RequestRow[]>(fetch(`${BASE}/requests`)),
+  create: (repo: string, task: string) => j<{ thread: string; request_id: string | null }>(fetch(`${BASE}/requests`, json({ repo, task }))),
+  thread: (thread: string, after = 0) => j<{ request: RequestRow | null; messages: ThreadMessage[] }>(fetch(`${BASE}/threads/${thread}?after=${after}`)),
+  decide: (id: string, decision: 'approve' | 'revise' | 'cancel', feedback = '') =>
+    j<{ message: string }>(fetch(`${BASE}/requests/${id}/decision`, json({ decision, feedback }))),
+  queue: () => j<RequestRow[]>(fetch(`${BASE}/queue`)),
+}
+
