@@ -18,7 +18,9 @@ def test_frontmatter():
 
 def test_defaults_without_harness_dir(tmp_path: Path):
     cfg = load_config(tmp_path)
-    assert cfg.root is None and set(cfg.agents) == {"intake", "supervisor", "worker", "diagnosis", "summarizer"}
+    assert cfg.root is None and set(cfg.agents) == {"intake", "supervisor", "worker", "diagnosis", "summarizer", "describer", "verifier"}
+    # planning agents never write or run anything: they see the repo read-only
+    assert cfg.agent("describer").tools == ["read_file", "glob", "grep"] and cfg.agent("verifier").tools == ["read_file", "glob", "grep"]
     assert cfg.agent("intake").tools == ["read_file", "glob", "grep"] and cfg.agent("intake").max_turns == 15
     assert cfg.agent("summarizer").tools == [] and cfg.agent("worker").tools is None
     assert cfg.system_prompt("worker") == cfg.agent("worker").system

@@ -65,7 +65,8 @@ def diff_stat(cwd: Path) -> str:
 
 def commit_all(cwd: Path, message: str) -> str:
     _stage(cwd, "-A")
-    if not _git(cwd, "status", "--porcelain"):
+    # Only what is staged counts: unstaged build junk (__pycache__) must not make an empty commit fail.
+    if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=cwd).returncode == 0:
         return ""
     _git(cwd, "commit", "-q", "-m", message, check=True)
     return _git(cwd, "rev-parse", "--short", "HEAD")
