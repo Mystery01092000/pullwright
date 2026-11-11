@@ -17,6 +17,7 @@ from ..session import Session
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "title": {"type": "string", "description": "Imperative issue / PR title, at most 70 characters"},
         "summary": {"type": "string"},
         "relevant_files": {
             "type": "array",
@@ -33,7 +34,7 @@ PLAN_SCHEMA: dict[str, Any] = {
         "risks": {"type": "array", "items": {"type": "string"}},
         "questions": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["summary", "relevant_files", "plan", "acceptance_criteria", "test_plan", "risks", "questions"],
+    "required": ["title", "summary", "relevant_files", "plan", "acceptance_criteria", "test_plan", "risks", "questions"],
     "additionalProperties": False,
 }
 VERIFY_SCHEMA: dict[str, Any] = {

@@ -44,8 +44,9 @@ class IssueTask:
 
 
 def title_for(plan: Plan) -> str:
-    first = plan.request.task.strip().splitlines()[0]
-    return first if len(first) <= 80 else first[:77].rstrip() + "..."
+    """The describer's title; the first line of the request when there is none (older plans)."""
+    title = (plan.spec.get("title") or "").strip() or plan.request.task.strip().splitlines()[0]
+    return title if len(title) <= 80 else title[:77].rstrip() + "..."
 
 
 def render_body(plan: Plan) -> str:

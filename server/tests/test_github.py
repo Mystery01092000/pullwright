@@ -110,3 +110,10 @@ def test_app_auth_signs_a_jwt_and_scopes_the_installation_token_to_one_repo():
     claims = jwt.decode(seen[0].headers["Authorization"].split()[1], key.public_key(), algorithms=["RS256"])
     assert claims["iss"] == "123"
     assert json.loads(seen[1].content) == {"repositories": ["app"]}
+
+
+def test_issue_title_comes_from_the_plan_when_the_describer_wrote_one(gh):
+    client, _ = gh
+    plan = _plan("a very long request " * 10)
+    plan.spec = {**SPEC, "title": "Add hello() with a docstring"}
+    assert issues.open_issue(client, plan)["title"] == "Add hello() with a docstring"
