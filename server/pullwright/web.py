@@ -67,7 +67,7 @@ class WebChannel:
 
 
 class NewRequest(BaseModel):
-    repo: str
+    repo: str = ""  # empty: the knowledge base picks one from the task
     task: str
 
 
@@ -143,8 +143,9 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
     def create(body: NewRequest, request: Request) -> dict[str, Any]:
         u = me(request)
         thread = uuid.uuid4().hex[:12]
-        store.add_message(thread, "user", {"text": f"{body.repo}: {body.task}", "login": u["login"]})
-        rid = intake.on_mention(Mention(chat_user(u), f"{body.repo}: {body.task}", {"thread": thread}, f"{public_url}/?thread={thread}"))
+        text = f"{body.repo.strip()}: {body.task}" if body.repo.strip() else body.task
+        store.add_message(thread, "user", {"text": text, "login": u["login"]})
+        rid = intake.on_mention(Mention(chat_user(u), text, {"thread": thread}, f"{public_url}/?thread={thread}"))
         return {"thread": thread, "request_id": rid}
 
     @r.get("/requests")
@@ -170,6 +171,18 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         if req["channel"] == "web":
             store.add_message(req["thread_ref"]["thread"], "user", {"text": f"{body.decision}" + (f": {body.feedback}" if body.feedback else ""), "login": u["login"]})
         return {"message": msg}
+
+    @r.get("/repos")
+    def repos(request: Request) -> list[dict[str, Any]]:
+        """The repositories Pullwright works on, with their profile, for the web UI's picker."""
+        me(request)
+        kb = getattr(intake, "knowledge", None)
+        allowed = sorted(getattr(intake, "allowed_repos", set()) or [])
+        out = []
+        for repo in allowed:
+            prof = kb.get(repo) if kb is not None else None
+            out.append({"repo": repo, "description": prof.description if prof else "", "languages": prof.languages[:3] if prof else []})
+        return out
 
     @r.get("/queue")
     def queue(request: Request) -> list[dict[str, Any]]:

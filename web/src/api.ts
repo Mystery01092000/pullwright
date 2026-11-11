@@ -66,6 +66,7 @@ export const api = {
 // --- the team flow: chat requests -> approved issues -> runner PRs (server/pullwright/web.py) ---
 
 export type Me = { login: string; name: string }
+export type RepoInfo = { repo: string; description: string; languages: string[] }
 
 export type RequestRow = {
   id: string
@@ -104,5 +105,6 @@ export const team = {
   decide: (id: string, decision: 'approve' | 'revise' | 'cancel', feedback = '') =>
     j<{ message: string }>(fetch(`${BASE}/requests/${id}/decision`, json({ decision, feedback }))),
   queue: () => j<RequestRow[]>(fetch(`${BASE}/queue`)),
+  repos: () => j<RepoInfo[]>(fetch(`${BASE}/repos`)),
 }
 

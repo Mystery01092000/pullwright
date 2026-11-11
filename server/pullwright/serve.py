@@ -78,6 +78,11 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
                     link_url=lambda t: f"{public}/link?token={t}", signer=LinkSigner(secret), allowed_repos=set(repos),
                     plan_cost_usd=float(os.environ.get("PULLWRIGHT_PLAN_MAX_COST_USD", "1")))
     parts: dict[str, Any] = {"store": store, "gh": gh, "intake": intake}
+    if repos:
+        from .knowledge import KnowledgeBase
+
+        intake.knowledge = KnowledgeBase(gh, store, anthropic.Anthropic)
+        threading.Thread(target=intake.knowledge.refresh, args=(repos,), name="knowledge", daemon=True).start()
 
     intake.register(WebChannel(store))
     if os.environ.get("SLACK_BOT_TOKEN") and os.environ.get("SLACK_APP_TOKEN"):

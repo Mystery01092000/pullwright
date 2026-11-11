@@ -1,7 +1,7 @@
 // The team flow in the browser: log in with GitHub, send a task for a repository, read the plan, approve it,
 // and follow the issue and PR. The same requests made from Slack or Teams show up here too.
 import { useEffect, useRef, useState } from 'react'
-import { team, type Me, type PlanCardBody, type RequestRow, type ThreadMessage } from './api'
+import { team, type Me, type PlanCardBody, type RepoInfo, type RequestRow, type ThreadMessage } from './api'
 import { Btn, Md } from './Chat'
 import { usd } from './model'
 
@@ -122,8 +122,10 @@ function Composer({ onSent }: { onSent: (thread: string) => void }) {
   const [repo, setRepo] = useState(localStorage.getItem('pw.repo') ?? '')
   const [task, setTask] = useState('')
   const [busy, setBusy] = useState(false)
+  const [repos, setRepos] = useState<RepoInfo[]>([])
+  useEffect(() => { team.repos().then(setRepos).catch(() => {}) }, [])
   const send = async () => {
-    if (!repo.includes('/') || !task.trim()) return
+    if (!task.trim() || (repo.trim() && !repo.includes('/'))) return
     setBusy(true)
     localStorage.setItem('pw.repo', repo)
     try { onSent((await team.create(repo.trim(), task.trim())).thread); setTask('') } finally { setBusy(false) }
@@ -135,7 +137,9 @@ function Composer({ onSent }: { onSent: (thread: string) => void }) {
       <p className="mb-4 text-center text-sm" style={{ color: 'var(--muted)' }}>
         A describer and a verifier read the repository and plan the change. You approve it, it becomes an issue, and a runner opens a PR that tags you.
       </p>
-      <input className="mono r-sm px-3 py-2 text-sm outline-none" style={field} placeholder="owner/repository" value={repo} onChange={(e) => setRepo(e.target.value)} />
+      <input className="mono r-sm px-3 py-2 text-sm outline-none" style={field} list="pw-repos" value={repo} onChange={(e) => setRepo(e.target.value)}
+        placeholder="owner/repository (leave empty: I'll pick it from the task)" />
+      <datalist id="pw-repos">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
       <textarea className="r-sm px-3 py-2 text-sm outline-none" style={field} rows={5} placeholder="Describe the task"
         value={task} onChange={(e) => setTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }} />
       <div className="flex justify-end"><Btn onClick={send}>{busy ? 'Sending...' : 'Plan it'}</Btn></div>

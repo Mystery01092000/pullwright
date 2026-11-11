@@ -153,8 +153,31 @@ class GitHub:
         return self._req("POST", repo, f"/pulls/{number}/comments/{comment_id}/replies", json={"body": body})
 
     # repository
+    def repo_info(self, repo: str) -> dict[str, Any]:
+        return self._req("GET", repo, "")
+
     def default_branch(self, repo: str) -> str:
-        return self._req("GET", repo, "")["default_branch"]
+        return self.repo_info(repo)["default_branch"]
+
+    def languages(self, repo: str) -> dict[str, int]:
+        return self._req("GET", repo, "/languages")
+
+    def readme(self, repo: str) -> str:
+        """The README's text, or "" when there is none."""
+        import base64
+
+        try:
+            data = self._req("GET", repo, "/readme")
+        except GitHubError as e:
+            if e.status == 404:
+                return ""
+            raise
+        return base64.b64decode(data.get("content", "")).decode("utf-8", errors="replace")
+
+    def tree(self, repo: str, ref: str) -> list[str]:
+        """Every file path at `ref` (GitHub truncates very large trees; that is fine for a profile)."""
+        data = self._req("GET", repo, f"/git/trees/{ref}", params={"recursive": "1"})
+        return [t["path"] for t in data.get("tree", []) if t.get("type") == "blob"]
 
     def permission(self, repo: str, login: str) -> str:
         """admin | maintain | write | triage | read | none"""

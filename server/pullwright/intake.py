@@ -86,6 +86,7 @@ class Intake:
     link_url: Callable[[str], str] = lambda token: f"/link?token={token}"
     signer: LinkSigner = field(default_factory=lambda: LinkSigner(uuid.uuid4().bytes))
     allowed_repos: set[str] = field(default_factory=set)  # empty = any repo the GitHub App can reach
+    knowledge: Any = None  # knowledge.KnowledgeBase: picks the repository when a task does not name one
     max_planning: int = 3
     plan_cost_usd: float = 1.0
     _pending: dict[str, _PendingReview] = field(default_factory=dict)
@@ -149,6 +150,15 @@ class Intake:
             ch.reply(m.thread_ref, self.link_prompt(m.user))
             return None
         repo, task = split_repo(text, m.default_repo)
+        if not repo and self.knowledge is not None and self.allowed_repos:
+            res = self.knowledge.resolve(task, sorted(self.allowed_repos), dev.github_login)
+            if res.repo:
+                repo = res.repo
+                ch.reply(m.thread_ref, f"Picked `{repo}` ({res.reason}). To use another repository, start the task with `owner/name:`.")
+            elif res.candidates:
+                options = ", ".join(f"`{c.repo}`" for c in res.candidates[:4])
+                ch.reply(m.thread_ref, f"Which repository? It could be {options}. Start the task with `owner/name:`.")
+                return None
         if not repo:
             ch.reply(m.thread_ref, "Which repository? Start the task with `owner/name:`, e.g. `arcane/app: add rate limiting`.")
             return None
