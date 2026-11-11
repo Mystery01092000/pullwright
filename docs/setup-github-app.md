@@ -10,8 +10,9 @@ For an organization, Pullwright authenticates as a GitHub App rather than as a p
 Go to GitHub → your organization → Settings → Developer settings → GitHub Apps → **New GitHub App**.
 
 - **Name:** e.g. `Pullwright (Arcane Tech)`
-- **Homepage URL:** your control plane's URL
-- **Webhook:** uncheck *Active*. Pullwright polls the queue, so it needs no webhook.
+- **Homepage URL:** any URL. GitHub only shows it on the app's page and never calls it, so the repository URL is fine, e.g. `https://github.com/Mystery01092000/pullwright`.
+- **Callback URL** (under *Identifying and authorizing users*): leave it empty. The app acts on repositories; nobody logs in through it.
+- **Webhook:** uncheck *Active*. Pullwright polls the queue, so it needs no webhook and no public URL.
 - **Repository permissions:**
 
   | Permission | Access | Why |
