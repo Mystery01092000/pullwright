@@ -191,7 +191,7 @@ class Run:
         self.summary = self._run(agent, prompt).text
         return self.summary
 
-    def run(self) -> "Run":
+    def run(self) -> Run:
         try:
             self.run_intake()
             if git.is_repo(self.cwd):
@@ -208,7 +208,7 @@ class Run:
             self.run_summary()
             self._set("awaiting_pr_decision", summary=self.summary)
             if self.branch and self.commit and self.io.want_pr(self.summary):
-                title = next((l[7:].strip() for l in reversed(self.summary.splitlines()) if l.startswith("TITLE:")), self.task[:60])
+                title = next((ln[7:].strip() for ln in reversed(self.summary.splitlines()) if ln.startswith("TITLE:")), self.task[:60])
                 self.pr_url = git.create_pr(self.cwd, title, self.summary)
                 self.bus.emit(Event("pr", self.id, "run", {"url": self.pr_url}))
             self._set("done", cost_usd=self.cost_usd, branch=self.branch, commit=self.commit, pr_url=self.pr_url)

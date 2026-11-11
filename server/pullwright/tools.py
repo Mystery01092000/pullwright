@@ -5,9 +5,10 @@ import glob as globmod
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__"}
 
@@ -124,7 +125,7 @@ def bash(ctx: ToolContext, command: str) -> str:
     try:
         r = subprocess.run(argv, cwd=ctx.root, capture_output=True, text=True, timeout=ctx.bash_timeout)
     except subprocess.TimeoutExpired:
-        raise ToolError(f"timed out after {ctx.bash_timeout}s")
+        raise ToolError(f"timed out after {ctx.bash_timeout}s") from None
     out = (r.stdout + ("\n" + r.stderr if r.stderr else "")).strip()
     if len(out) > 30_000:
         out = out[:30_000] + "\n...(truncated)"

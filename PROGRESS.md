@@ -1,48 +1,47 @@
-# Progress Tracker
+# Progress
 
-Legend: **Dev** = code written Â· **Tested** = automated tests pass Â· **Live** = verified against the real API Â· **Push** = ready to push
+Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted model, fake GitHub, no network) · **Live** = verified against the real service · **Pushed** = on GitHub
 
-| Item | Dev | Tested | Live | Push | Notes |
+## Pullwright (team flow)
+
+| Item | Dev | Tested | Live | Pushed | Notes |
 |---|---|---|---|---|---|
-| Plan + scaffold | x | x | n/a | x |  |
-| P1 events + pricing | x | x | n/a | x |  |
-| P1 tools (read/write/edit/glob/grep/bash, sandbox) | x | x | n/a | x |  |
-| P1 agent loop (streaming, usage, cost) | x | x |  | x | Live needs ANTHROPIC_API_KEY; SDK params verified against anthropic 2.4.0 |
-| P1 CLI | x |  |  | x | Live needs ANTHROPIC_API_KEY |
-| P2 guardrails (allowlist, budgets, denylist, approval) | x | x | n/a | x | landed in P1 |
-| P2 MCP | x | x | x | x | mcp 2.x stdio; verified against a real local MCP server in tests |
-| P3 lifecycle (intake/supervisor/worker/diagnosis/summarizer) | x | x | x | x | Live: subtract()+9 tests on a demo repo, diagnosis complete |
-| P3 git branch + PR | x | x | partial | x | branch+commit live; gh pr create needs a repo with origin |
-| P4 SQLite store | x | x | n/a | x | |
-| P4 FastAPI + SSE | x | x | x | x | drove the live run through the API |
-| P6 config: agents/instructions/guardrails/hooks/skills | x | x | | x | not yet exercised on a live run |
-| P6 evals runner | x | x | | x | `uv run python -m evals.run`; not yet run against the real API |
-| P7 Trace view (agent-trace component on real events) | x | build | x | x | Chat/Trace switch per thread; verified on the Go run (52 spans) |
-| P5 UI | x | x | x | x | Redesigned as a Claude-style chat: user bubble, assistant prose (markdown), collapsible agent steps w/ nested workers + thinking, inline decisions, cost strip at the bottom. Verified live in Chrome on the Go todo-api run |
+| Rename agent-loom → pullwright, `.pullwright/` config (`.harness/` still read) | x | x | n/a | | |
+| Role models: Sonnet main roles, Haiku workers; fallbacks only where supported | x | x | | | Haiku 5.5 has no server-side refusal fallback |
+| `Session`: shared agent building, guardrails, budgets, spawn_worker | x | x | n/a | | lifecycle.Run uses it |
+| Planning: describer + verifier + review loop | x | x | | | |
+| Work loop: supervisor + Haiku workers → checks → review, bounded | x | x | | | |
+| Checks detection + `.pullwright/checks.json`, failure excerpts | x | x | n/a | | |
+| Repo map | x | x | n/a | | |
+| GitHub App auth (per-repo tokens), issues as queue, PRs | x | x | | | |
+| Runner job (`pullwright-work`): clone, work, push, PR | x | x | | | tested against a bare repo and fake GitHub |
+| Docker runner + runner image | x | x | partial | | image built and smoke-tested locally (uid 1000, node 22, uv, git) |
+| Dispatcher: oldest first, one at a time | x | x | | | |
+| Intake: requests, account linking, approval by write access | x | x | | | |
+| Slack channel (Socket Mode, Block Kit, revise modal) | x | x | | | needs a Slack app (deploy/slack-manifest.yml) |
+| Teams channel (Bot Framework REST, Adaptive Card, JWT verification) | x | x | | | needs an Azure Bot registration |
+| Web channel: GitHub login, Requests and Queue screens | x | x (API), build | | | |
+| `pullwright-serve`: /auth at root, /api, UI at / | x | x | | | |
+| CI (tests, ruff, web build, runner image) | x | | | | runs on first push |
+| Docs: README, architecture, configuration, setup guides, runners, cost, evals, roadmap | x | n/a | n/a | | |
+| EC2 runner | | | | | roadmap |
+| Control-plane LLM proxy | | | | | roadmap |
 
-## How to run
-```bash
-cd server && uv run uvicorn harness.api:app --port 8765      # needs ANTHROPIC_API_KEY
-cd web && npm run dev                                         # http://localhost:5173
-cd server && uv run python -m harness.cli "task" --cwd <repo> # terminal flow
-```
+79 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
 
-## Still pending
-- API key lives in server/.env (gitignored); loaded automatically.
-- `gh pr create` path not exercised (needs a repo with an origin).
+## To verify live
 
-## Commits ready to push
-- `feat: phase 1 core loop` — events, pricing, tools, agent loop, CLI, 10 tests green
-- `feat: phase 2 MCP bridge` — mcp.json stdio servers registered as mcp__<server>__<tool>, 11 tests green
-- `feat: phase 3 lifecycle` — Run state machine, 5 agents, spawn_worker, structured intake/diagnosis, branch+commit+PR, 14 tests green
-- `feat: phase 4 store + API` — SQLite events/usage, FastAPI runs/decide/events/cost, SSE stream, 16 tests green
-- `feat: phase 5 React UI` — runs sidebar, conversation + decision gates, agent trace, cost panel; `npm run build` green
-- `fix: exclude build junk from commits` — diagnosis agent caught __pycache__ being committed on repos without .gitignore; 17 tests green
-- `feat: chat-style UI` — markdown replies, collapsible steps, inline decisions, cost strip; live-verified on a Go project build ($0.55, 23 calls, go build/vet/test pass)
-- `feat: liquid-glass UI` — prompt-composer component under web/src/components/ui (gsap), @/ alias, dark glass theme across sidebar/chat/cost strip; task-kind chips and model menu wired to the API
-- `feat: README, cancel, tail caching` — README with philosophy + screenshots, POST /runs/{id}/cancel + Stop button, top-level cache_control on the conversation tail; 18 tests green
-- `feat: thread continuation` — runs grouped into threads; typing under a finished/cancelled run continues on the same branch with thread history as intake context; orphan sweep on restart; 20 tests green
-- `feat: .harness config layer` — agents as markdown (defaults + repo overrides), instructions.md, guardrails.json (deny/ask/allow), hooks.json (pre_tool blocks, post_tool, state), skills/ + load_skill tool, evals runner with 3 cases, examples/.harness; 28 tests green
-- `feat: rich CLI` — header, phase rules, streamed thinking, tool steps, intake/summary panels, cost table; live-verified
-- `feat: interactive CLI session` — prompt loop, /new /cost /help /quit, thread continuation shared with the API via lifecycle.thread_context
-- `feat: trace view` — components/ui/agent-trace (lucide, cn), shadcn tokens in @theme, event log → spans, Chat/Trace switch
+1. A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.
+2. A Slack test workspace: mention → plan card → approve → PR link in the thread.
+3. The web UI end to end with GitHub OAuth.
+4. Teams through a dev tunnel.
+
+## Local mode (agent-loom history)
+
+| Item | Dev | Tested | Live | Notes |
+|---|---|---|---|---|
+| Core loop, tools, sandbox, pricing, CLI | x | x | x | |
+| Guardrails, MCP | x | x | x | |
+| Lifecycle (intake/supervisor/worker/diagnosis/summarizer) | x | x | x | subtract() + 9 tests; Go todo API |
+| SQLite store, FastAPI + SSE, React UI, trace view | x | x | x | |
+| `.pullwright/` config layer, hooks, skills, evals runner | x | x | | evals not yet run against the real API |

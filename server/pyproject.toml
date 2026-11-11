@@ -24,6 +24,7 @@ pullwright-serve = "pullwright.serve:main"
 dev = [
     "httpx>=0.28.1",
     "pytest>=8",
+    "ruff>=0.14,<1",
 ]
 
 [tool.pytest.ini_options]
@@ -35,3 +36,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pullwright"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008"]

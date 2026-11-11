@@ -1,0 +1,31 @@
+# Slack app manifest for Pullwright. Create the app at https://api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: Pullwright
+  description: Plans your task, opens the issue, and a runner opens the PR.
+  background_color: "#1d2433"
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: pullwright
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read   # be tagged in channels
+      - chat:write          # reply in threads, post plan cards
+      - users:read          # show the requester's name
+      - im:history          # tasks sent by direct message
+      - im:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true        # Approve / Revise / Cancel buttons and the revise modal
+  org_deploy_enabled: false
+  socket_mode_enabled: true # no public URL needed
+  token_rotation_enabled: false

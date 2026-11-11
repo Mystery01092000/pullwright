@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose a change or a new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost and safety
+      description: Does it change model spend, what agents can do, or what runs on a runner?

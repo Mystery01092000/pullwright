@@ -46,7 +46,7 @@ class AgentSpec:
     source: str = "default"
 
     @classmethod
-    def from_file(cls, path: Path, source: str) -> "AgentSpec":
+    def from_file(cls, path: Path, source: str) -> AgentSpec:
         meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
         tools = [t.strip() for t in meta["tools"].split(",") if t.strip()] if "tools" in meta else None
         return cls(

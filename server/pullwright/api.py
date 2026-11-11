@@ -22,8 +22,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from .events import Event, EventBus
 from .lifecycle import Run, thread_context
-from .models import MAIN_MODEL, WORKER_MODEL
 from .mcp_tools import load_mcp
+from .models import MAIN_MODEL, WORKER_MODEL
 from .store import Store
 
 

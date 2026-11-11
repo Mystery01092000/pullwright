@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "${{PULLWRIGHT_TEAMS_APP_ID}}",
+  "developer": {
+    "name": "Arcane Tech",
+    "websiteUrl": "https://github.com/Mystery01092000/pullwright",
+    "privacyUrl": "https://github.com/Mystery01092000/pullwright/blob/main/SECURITY.md",
+    "termsOfUseUrl": "https://github.com/Mystery01092000/pullwright/blob/main/LICENSE"
+  },
+  "name": { "short": "Pullwright", "full": "Pullwright: chat task to pull request" },
+  "description": {
+    "short": "Tag it with a task; it plans, opens the issue and a runner opens the PR.",
+    "full": "Pullwright reads your repository and drafts an implementation plan for a task. When you approve it, it opens a GitHub issue, and an isolated runner implements it until every check passes and opens a pull request that tags you."
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#5FB2F2",
+  "bots": [
+    {
+      "botId": "${{PULLWRIGHT_TEAMS_APP_ID}}",
+      "scopes": ["team", "personal", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["team", "personal", "groupChat"],
+          "commands": [
+            { "title": "help", "description": "How to send a task" },
+            { "title": "link", "description": "Link your GitHub account" }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["${{PULLWRIGHT_PUBLIC_HOST}}"]
+}

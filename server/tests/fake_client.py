@@ -33,7 +33,7 @@ class _Stream:
     def __init__(self, msg: NS) -> None:
         self.msg = msg
 
-    def __enter__(self) -> "_Stream":
+    def __enter__(self) -> _Stream:
         return self
 
     def __exit__(self, *a: Any) -> None:
