@@ -22,12 +22,12 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | Teams channel (Bot Framework REST, Adaptive Card, JWT verification) | x | x | | | needs an Azure Bot registration |
 | Web channel: GitHub login, Requests and Queue screens | x | x (API), build | | | |
 | `pullwright-serve`: /auth at root, /api, UI at / | x | x | | | |
-| CI (tests, ruff, web build, runner image) | x | | | | runs on first push |
+| CI (tests, ruff, web build, runner image) | x | x | x | x | green on GitHub |
 | Docs: README, architecture, configuration, setup guides, runners, cost, evals, roadmap | x | n/a | n/a | | |
 | EC2 runner | | | | | roadmap |
 | Control-plane LLM proxy | | | | | roadmap |
 
-79 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
+81 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
 
 ## Live runs
 
