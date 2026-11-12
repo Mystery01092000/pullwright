@@ -35,6 +35,8 @@ docker run --rm --name pullwright-<owner>-<repo>-<n> --init \
 
 ### Build the image
 
+Released images are on GHCR (`ghcr.io/mystery01092000/pullwright-runner:<version>` and `:latest`, amd64 and arm64), published by `.github/workflows/release.yml` on every `v*` tag. To build your own:
+
 ```bash
 docker build -f runner/Dockerfile -t ghcr.io/<you>/pullwright-runner:latest .
 docker push ghcr.io/<you>/pullwright-runner:latest
@@ -58,7 +60,7 @@ Then set `PULLWRIGHT_RUNNER_IMAGE` to your image. Services a test suite needs (P
 
 ### Where the control plane runs
 
-The control plane needs access to a Docker daemon: run it on the host, or in a container with the Docker socket mounted. Mounting the socket gives that container control of the host's Docker, so keep the control plane on a machine dedicated to Pullwright.
+The control plane needs access to a Docker daemon: run it on the host, or in a container with the Docker socket mounted (`deploy/docker-compose.yml` does this). Mounting the socket gives that container control of the host's Docker, so keep the control plane on a machine dedicated to Pullwright.
 
 ## The local runner
 

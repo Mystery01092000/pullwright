@@ -77,7 +77,7 @@ Open the web UI, log in with GitHub (this needs an OAuth app; see [getting start
 
 ## Status
 
-The full flow (chat → plan → approval → issue → Docker runner → checks loop → PR → back to chat) is implemented and covered by 99 automated tests. They run with a scripted model and a fake GitHub, so they need no network or API key. Live verification against real Slack, Teams and GitHub App installations is in progress; [PROGRESS.md](PROGRESS.md) tracks what has been verified live. EC2 runners and a control-plane LLM proxy are next on the [roadmap](docs/roadmap.md).
+The full flow (chat → plan → approval → issue → Docker runner → checks loop → PR → back to chat) is implemented and covered by 119 automated tests. They run with a scripted model and a fake GitHub, so they need no network or API key. Live verification against real Slack, Teams and GitHub App installations is in progress; [PROGRESS.md](PROGRESS.md) tracks what has been verified live. EC2 runners are next on the [roadmap](docs/roadmap.md).
 
 ## Contributing
 

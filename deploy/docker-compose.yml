@@ -1,0 +1,33 @@
+# The Pullwright control plane on one machine.
+#
+#   cp .env.example server/.env        # fill it in (docs/configuration.md)
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   open http://localhost:8765
+#
+# The container starts one runner container per issue through the host's Docker socket. Mounting the socket gives
+# this container root-equivalent control of the host's Docker daemon: run it on a machine dedicated to Pullwright
+# (docs/runners.md, "Security").
+services:
+  pullwright:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+    image: pullwright-server:local
+    env_file: ../server/.env
+    environment:
+      PULLWRIGHT_DB: /data/pullwright.db
+      PULLWRIGHT_WORKDIR: /data/work
+      # Runners reach the LLM proxy here, so no provider key enters a runner (docs/providers.md).
+      # Remove this line to pass provider keys to runners instead.
+      PULLWRIGHT_LLM_PROXY_URL: ${PULLWRIGHT_LLM_PROXY_URL:-http://host.docker.internal:8765/llm}
+    ports:
+      - "8765:8765"
+    volumes:
+      - pullwright-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  pullwright-data:

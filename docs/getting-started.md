@@ -48,6 +48,17 @@ cd server && uv sync && uv run pullwright-serve
 
 Open http://localhost:8765 and log in with GitHub.
 
+### Or with Docker Compose
+
+```bash
+docker build -f runner/Dockerfile -t ghcr.io/mystery01092000/pullwright-runner:latest .   # or pull a released image
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+This runs `pullwright-serve` in a container built from the repository (web UI included), reads `server/.env`, and keeps the SQLite database and planning clones in the `pullwright-data` volume. It mounts the host's Docker socket to start runner containers. That gives the container root-equivalent control of the host's Docker daemon, so use a machine dedicated to Pullwright ([runners](runners.md#where-the-control-plane-runs)). By default it also turns on the [LLM proxy](providers.md#the-llm-proxy-no-provider-key-in-a-runner), so runners get a job token instead of your provider keys.
+
+Released images are published to GHCR for amd64 and arm64 on every `v*` tag: `ghcr.io/mystery01092000/pullwright-runner` and `ghcr.io/mystery01092000/pullwright-server`.
+
 ## 5. Send a task
 
 In **Requests**, enter `your-name/your-test-repo` and a small, testable task, for example *"Add a `slugify(text)` helper in utils with tests for spaces, punctuation and unicode"*. Then:

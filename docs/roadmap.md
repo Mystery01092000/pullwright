@@ -22,10 +22,11 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 - [x] **LLM proxy in the control plane**, so no provider key enters a runner and budgets are enforced centrally ([providers](providers.md))
 - [x] **Any provider per role**: OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, Ollama and custom OpenAI-compatible servers
 - [ ] **Planning and issue evals** with cost and pass rate per issue; nightly eval workflow
-- [ ] Follow-ups on a PR: `@pullwright` in a PR review comment sends the runner back with the review as the brief
+- [x] Follow-ups on a PR: review comments from people with write access (or only `@pullwright` mentions) send the runner back to the same branch with the review as the brief, and every run posts a work log on the PR
 - [x] Post a cost breakdown per stage on the PR, and show it in a web cost view
 - [ ] Postgres option for the control plane store
-- [ ] Publish the runner image to GHCR from CI on tagged releases
+- [x] Publish the runner and control-plane images to GHCR (amd64 + arm64) on tagged releases
+- [x] Docker Compose file for the control plane
 
 ## Ideas
 

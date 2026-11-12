@@ -24,10 +24,16 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | `pullwright-serve`: /auth at root, /api, UI at / | x | x | x | | |
 | CI (tests, ruff, web build, runner image) | x | x | x | x | green on GitHub |
 | Docs: README, architecture, configuration, setup guides, runners, cost, evals, roadmap | x | n/a | n/a | | |
+| PR review feedback loop + work log on the PR (#7) | x | x | | | review comments from writers send the runner back to the same branch |
+| Any provider per role (Anthropic, OpenAI-compatible presets, custom) | x | x | x | | live: Claude Haiku and Ollama qwen2.5 tool runs |
+| Control-plane LLM proxy (#3): job tokens, central dollar cap | x | x | x | | live: Haiku (streamed) and Ollama through the proxy; spend matched the agent's count |
+| Cost per stage and model: PR body, work log, per request, /api/costs | x | x | | | |
+| Web: request timeline, live runner panel, structured plan card, Costs view, light theme | x | build | x | | checked in a browser against a seeded store |
+| Docker Compose + control-plane image (#8) | x | n/a | x | | image built; API, UI, proxy, Docker CLI and healthcheck verified |
+| GHCR release workflow, amd64 + arm64 (#5) | x | n/a | | | runs on the first v* tag |
 | EC2 runner | | | | | roadmap |
-| Control-plane LLM proxy | | | | | roadmap |
 
-81 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
+119 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
 
 ## Live runs
 
