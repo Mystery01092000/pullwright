@@ -32,7 +32,7 @@ class TokenProvider(Protocol):
 class PatAuth:
     pat: str
 
-    def token(self, repo: str) -> str:
+    def token(self, repo: str, read_only: bool = False) -> str:
         return self.pat
 
 
@@ -51,19 +51,24 @@ class AppAuth:
         now = int(time.time())
         return jwt.encode({"iat": now - 60, "exp": now + 540, "iss": self.app_id}, self.private_key_pem, algorithm="RS256")
 
-    def token(self, repo: str) -> str:
-        cached = self._cache.get(repo)
+    def token(self, repo: str, read_only: bool = False) -> str:
+        """`read_only`: a token that can only read contents (for the organisation config repository)."""
+        key = f"{repo}:ro" if read_only else repo
+        cached = self._cache.get(key)
         if cached and cached[1] - time.time() > 300:
             return cached[0]
         auth = {"Authorization": f"Bearer {self.jwt()}"}
         r = self.http.get(f"/repos/{repo}/installation", headers=auth)
         _raise(r)
         inst = r.json()["id"]
-        r = self.http.post(f"/app/installations/{inst}/access_tokens", headers=auth, json={"repositories": [repo.split("/", 1)[1]]})
+        body: dict[str, Any] = {"repositories": [repo.split("/", 1)[1]]}
+        if read_only:
+            body["permissions"] = {"contents": "read", "metadata": "read"}
+        r = self.http.post(f"/app/installations/{inst}/access_tokens", headers=auth, json=body)
         _raise(r)
         data = r.json()
         expires = calendar.timegm(time.strptime(data["expires_at"], "%Y-%m-%dT%H:%M:%SZ"))  # UTC
-        self._cache[repo] = (data["token"], expires)
+        self._cache[key] = (data["token"], expires)
         return data["token"]
 
 

@@ -78,6 +78,15 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
                     link_url=lambda t: f"{public}/link?token={t}", signer=LinkSigner(secret), allowed_repos=set(repos),
                     plan_cost_usd=float(os.environ.get("PULLWRIGHT_PLAN_MAX_COST_USD", "1")))
     parts: dict[str, Any] = {"store": store, "gh": gh, "intake": intake}
+    org_spec = os.environ.get("PULLWRIGHT_ORG_CONFIG", "").strip()
+    if org_spec:
+        from . import orgconfig
+
+        cache = Path(os.environ.get("PULLWRIGHT_WORKDIR", ".pullwright-work")) / "org-config"
+        # fail closed: the organisation's deny lists and hooks must be in force before any task runs
+        parts["org_config"] = orgconfig.sync(gh, org_spec, cache)[1]
+        threading.Thread(target=orgconfig.keep_synced, args=(gh, org_spec, cache, float(os.environ.get("PULLWRIGHT_ORG_CONFIG_REFRESH", "300")),
+                                                             threading.Event()), name="org-config", daemon=True).start()
     if repos:
         from .knowledge import KnowledgeBase
 

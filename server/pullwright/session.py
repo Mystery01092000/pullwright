@@ -43,6 +43,7 @@ class Session:
     cancelled: threading.Event = field(default_factory=threading.Event)
     cost_usd: float = 0.0
     state_hooks: bool = True  # run `state` hooks; lifecycle.Run fires its own
+    hooks: bool = True  # False: run no hooks at all (planning on the control plane never runs configured commands)
     _workers: int = 0
     meter: CostMeter = field(default_factory=CostMeter)  # cost per stage and model
 
@@ -50,7 +51,7 @@ class Session:
         self.cfg = self.cfg or load_config(self.cwd)
         self.bus.subscribe(self._track_cost)
         self.bus.subscribe(self.meter)
-        if self.state_hooks and any(h.event == "state" for h in self.cfg.hooks):
+        if self.hooks and self.state_hooks and any(h.event == "state" for h in self.cfg.hooks):
             self.bus.subscribe(self._state_hooks)
 
     def _state_hooks(self, ev: Event) -> None:
@@ -75,7 +76,7 @@ class Session:
 
     def ctx(self) -> ToolContext:
         g = self.cfg.guardrails
-        hooks = self.cfg.hooks
+        hooks = self.cfg.hooks if self.hooks else []
 
         def pre(name: str, inp: dict[str, Any]) -> str | None:
             return self.cfg.run_hooks("pre_tool", name, {"run_id": self.run_id, "tool": name, "input": inp}, self.cwd)
@@ -162,7 +163,45 @@ class Session:
             res = self.run(worker, f"Task:\n{task}\n\nContext:\n{context}", parent=parent())
             return f"[worker stop={res.stop} cost=${res.cost_usd:.3f}]\n{res.text}"
 
-        return {"spawn_worker": (schema, spawn)}
+        tools = {"spawn_worker": (schema, spawn)}
+        if self.cfg.specialists:
+            tools["spawn_specialist"] = self._specialist_tool(parent)
+        return tools
+
+    def _specialist_tool(self, parent: Callable[[], str | None]) -> tuple[dict[str, Any], Any]:
+        """Hand a task to one of the organisation's or repository's specialist agents (config.HarnessConfig.specialists)."""
+        names = sorted(self.cfg.specialists)
+        schema = {
+            "description": "Run a specialist agent (listed in your instructions) on one task. Returns its final report.",
+            "strict": True,
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "agent": {"type": "string", "enum": names},
+                    "task": {"type": "string", "description": "Exactly what to do, with acceptance criteria"},
+                    "context": {"type": "string", "description": "Relevant files, conventions, and constraints"},
+                },
+                "required": ["agent", "task", "context"],
+                "additionalProperties": False,
+            },
+        }
+
+        def spawn(ctx: ToolContext, agent: str, task: str, context: str) -> str:
+            spec = self.cfg.specialists.get(agent)
+            if spec is None:
+                raise ToolError(f"unknown specialist {agent!r}; available: {', '.join(names)}")
+            self._workers += 1
+            extra: dict[str, Any] = {"load_skill": self._load_skill_tool()} if self.cfg.skills else {}
+            tools = [t for t in (spec.tools or ["read_file", "write_file", "edit_file", "glob", "grep", "bash"]) if t in TOOLS]
+            tools += [t for t in extra if t not in tools]
+            a = AgentDef(name=f"{agent}{self._workers}", system=self.cfg.specialist_prompt(agent),
+                         model=spec.model or self.worker_model, effort=spec.effort or "medium", tools=tools,
+                         max_turns=spec.max_turns or 50, max_cost_usd=min(spec.max_cost_usd or self.max_cost_usd, self.max_cost_usd),
+                         extra_tools=extra)
+            res = self.run(a, f"Task:\n{task}\n\nContext:\n{context}", parent=parent())
+            return f"[{agent} stop={res.stop} cost=${res.cost_usd:.3f}]\n{res.text}"
+
+        return schema, spawn
 
 
 def _default_deny() -> list[str]:

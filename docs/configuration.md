@@ -46,6 +46,14 @@ There are two layers:
 | `PULLWRIGHT_PRICES` | unset | JSON, inline or as a file, with prices for models outside Anthropic. |
 | `PULLWRIGHT_LLM_PROXY_URL` | unset | Set it to route runners through the control plane's LLM proxy, so no provider key enters a runner. |
 
+### Organisation config ([details](org-config.md))
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PULLWRIGHT_ORG_CONFIG` | unset | `owner/repo[@ref][:folder]`: shared agents, skills, hooks, instructions and guardrails for every repository |
+| `PULLWRIGHT_ORG_CONFIG_REFRESH` | `300` | Seconds between fetches; each runner job is pinned to the commit the control plane last fetched |
+| `PULLWRIGHT_ORG_CONFIG_DIR` | unset | A local folder instead (development) |
+
 ### Cost and effort caps
 
 | Variable | Default | Applies to |

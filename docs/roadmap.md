@@ -29,6 +29,8 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 - [x] Publish the runner and control-plane images to GHCR (amd64 + arm64) on tagged releases
 - [x] Docker Compose file for the control plane
 
+- [x] **Organisation config repository**: shared agents (role overrides and specialists), skills, hooks, instructions and guardrails, pinned per run; Claude Code layout supported ([org-config](org-config.md))
+
 ## Ideas
 
 - Repository memory: conventions learned from past reviews, kept in `.pullwright/instructions.md` through PRs

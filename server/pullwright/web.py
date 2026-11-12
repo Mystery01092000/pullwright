@@ -69,6 +69,7 @@ class WebChannel:
 class NewRequest(BaseModel):
     repo: str = ""  # empty: the knowledge base picks one from the task
     task: str
+    thread: str = ""  # continue one of your own web threads (e.g. after "which repository?"); empty = a new thread
 
 
 class DecisionBody(BaseModel):
@@ -143,6 +144,14 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
     def create(body: NewRequest, request: Request) -> dict[str, Any]:
         u = me(request)
         thread = uuid.uuid4().hex[:12]
+        if body.thread:
+            first = next(iter(store.messages(body.thread)), None)
+            if first is None or first["kind"] != "user" or first["body"].get("login") != u["login"]:
+                raise HTTPException(404, "no such thread")
+            live = next((x for x in store.requests(u["login"], 500) if x["thread_ref"].get("thread") == body.thread), None)
+            if live is not None and live["state"] in ("planning", "awaiting_approval", "queued", "working"):
+                raise HTTPException(409, "this thread already has a task in progress")
+            thread = body.thread
         text = f"{body.repo.strip()}: {body.task}" if body.repo.strip() else body.task
         store.add_message(thread, "user", {"text": text, "login": u["login"]})
         rid = intake.on_mention(Mention(chat_user(u), text, {"thread": thread}, f"{public_url}/?thread={thread}"))

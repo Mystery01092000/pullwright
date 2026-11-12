@@ -70,6 +70,7 @@ Open the web UI, log in with GitHub (this needs an OAuth app; see [getting start
 - Setup guides: [GitHub App](docs/setup-github-app.md) · [Slack](docs/setup-slack.md) · [Microsoft Teams](docs/setup-teams.md)
 - [Runners](docs/runners.md): the Docker image, isolation, adding toolchains, the EC2 plan.
 - [Cost](docs/cost.md): where the money goes and the knobs that control it.
+- [Organisation config](docs/org-config.md): one repository of shared agents, skills, hooks and guardrails (Claude Code layout works) for every repository.
 - [Models and providers](docs/providers.md): run any role on Anthropic, OpenAI, Gemini, OpenRouter, Ollama or any OpenAI-compatible server, and keep keys out of runners with the LLM proxy.
 - [Evals](docs/evals.md): measure a prompt or model change instead of guessing.
 - [Local mode](docs/local-mode.md): the single-developer chat UI and CLI that Pullwright grew from.

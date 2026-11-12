@@ -8,6 +8,7 @@ feedback on an open Pullwright PR). Everything it needs comes from GitHub and th
     PULLWRIGHT_MAX_COST_USD   dollar cap for this issue (default 5)
     PULLWRIGHT_MAX_ROUNDS     supervisor -> checks rounds (default 4)
     PULLWRIGHT_FEEDBACK_TRIGGER  any (default) | mention: which PR comments count as feedback
+    PULLWRIGHT_ORG_CONFIG(_SHA, _TOKEN)  the organisation's shared agents/skills/hooks, pinned (pullwright.orgconfig)
 
 Progress goes to stdout as `PWEVENT {json}` lines (the dispatcher follows the container log and stores them,
 so the web UI shows the run live) and ends with one `PWRESULT {json}` line.
@@ -179,6 +180,11 @@ def main(argv: list[str] | None = None) -> int:
     bus = EventBus()
     bus.subscribe(_stdout_sink)
     with tempfile.TemporaryDirectory(prefix="pullwright-") as tmp:
+        from .. import orgconfig
+
+        org = orgconfig.load_in_runner(Path(tmp))
+        if org:
+            print(f"organisation config {os.environ.get('PULLWRIGHT_ORG_CONFIG')} at {org[:12]}", flush=True)
         caps = {"max_cost_usd": float(os.environ.get("PULLWRIGHT_MAX_COST_USD", "5")),
                 "max_rounds": int(os.environ.get("PULLWRIGHT_MAX_ROUNDS", "4"))}
         gh, client = GitHub(PatAuth(token)), Router()

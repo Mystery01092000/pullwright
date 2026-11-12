@@ -18,7 +18,11 @@ STAGE_LABEL = {"plan": "Planning", "work": "Implementation", "review": "Review",
 
 
 def stage_of(agent_name: str) -> str:
-    return _ROLE_STAGE.get(re.sub(r"\d+$", "", agent_name), "other")
+    """Roles map to their stage; a numbered specialist (`security-reviewer3`, spawned by the supervisor) is work."""
+    base = re.sub(r"\d+$", "", agent_name)
+    if base in _ROLE_STAGE:
+        return _ROLE_STAGE[base]
+    return "work" if base != agent_name else "other"
 
 
 def empty() -> dict[str, Any]:

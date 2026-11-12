@@ -83,7 +83,9 @@ class Dispatcher:
         if self.ledger is not None and self.proxy_url:
             cap = float(os.environ.get("PULLWRIGHT_MAX_COST_USD", "5"))
             proxy = (self.proxy_url.rstrip("/"), self.ledger.issue(key, cap))
-        return runner_env(dict(os.environ), proxy)
+        from . import orgconfig
+
+        return {**runner_env(dict(os.environ), proxy), **orgconfig.runner_env(self.gh)}
 
     def _settle(self, job: Job) -> dict[str, Any] | None:
         """Revoke the job's proxy token and keep what it spent (the proxy's count, which a runner cannot alter)."""

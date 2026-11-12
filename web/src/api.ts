@@ -134,7 +134,7 @@ export const team = {
   loginUrl: (next = '/') => `/auth/github/login?next=${encodeURIComponent(next)}`,
   logout: () => j<{ ok: true }>(fetch('/auth/logout', { method: 'POST' })),
   requests: () => j<RequestRow[]>(fetch(`${BASE}/requests`)),
-  create: (repo: string, task: string) => j<{ thread: string; request_id: string | null }>(fetch(`${BASE}/requests`, json({ repo, task }))),
+  create: (repo: string, task: string, thread = '') => j<{ thread: string; request_id: string | null }>(fetch(`${BASE}/requests`, json({ repo, task, thread }))),
   thread: (thread: string, after = 0) => j<{ request: RequestRow | null; messages: ThreadMessage[] }>(fetch(`${BASE}/threads/${thread}?after=${after}`)),
   decide: (id: string, decision: 'approve' | 'revise' | 'cancel', feedback = '') =>
     j<{ message: string }>(fetch(`${BASE}/requests/${id}/decision`, json({ decision, feedback }))),

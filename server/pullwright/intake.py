@@ -193,7 +193,8 @@ class Intake:
         thread = req.thread_ref
         try:
             cwd = self._repo_clone(req.repo)
-            session = Session(cwd=cwd, client=self.client_factory(), run_id=f"req-{rid}", max_cost_usd=self.plan_cost_usd)
+            # hooks=False: planning runs on the control plane, so no repository- or org-configured command runs here
+            session = Session(cwd=cwd, client=self.client_factory(), run_id=f"req-{rid}", max_cost_usd=self.plan_cost_usd, hooks=False)
             session.bus.subscribe(self.store.append)
             reviewer = _ChannelReviewer(self, rid, ch, thread)
             reviewer.cost = lambda: session.cost_usd

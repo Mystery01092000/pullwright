@@ -116,3 +116,15 @@ def test_teams_webhook_rejects_unsigned_calls():
     assert c.post("/api/teams/messages", json=act).status_code == 401
     assert c.post("/api/teams/messages", json=act, headers={"Authorization": "Bearer good"}).status_code == 200
     assert teams.handled == [act]
+
+
+def test_a_thread_without_a_live_task_takes_another_message():
+    c, intake, store, signer = _client()
+    c.cookies.set(COOKIE, signer.dumps({"login": "asha", "name": "Asha Rao"}, 3600))
+    intake.on_mention = lambda m: None  # e.g. "I'm not set up for that repository": no request is created
+    t = c.post("/api/requests", json={"repo": "other/repo", "task": "x"}).json()
+    assert t["request_id"] is None
+    again = c.post("/api/requests", json={"repo": "arcane/app", "task": "y", "thread": t["thread"]}).json()
+    assert again["thread"] == t["thread"] and [m["body"]["text"] for m in store.messages(t["thread"])] == ["other/repo: x", "arcane/app: y"]
+    c.cookies.set(COOKIE, signer.dumps({"login": "vik", "name": "Vik"}, 3600))
+    assert c.post("/api/requests", json={"task": "z", "thread": t["thread"]}).status_code == 404  # not their thread

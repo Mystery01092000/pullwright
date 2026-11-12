@@ -216,6 +216,40 @@ function Thread({ thread }: { thread: string }) {
         {req?.state === 'planning' && <PlanningSkeleton stage={planStage} />}
         <div className="mt-4"><RunnerPanel events={events} /></div>
       </div>
+      {(!req || !LIVE.has(req.state)) && msgs.length > 0 && <FollowUp thread={thread} lastRepo={req?.repo ?? ''} />}
+    </div>
+  )
+}
+
+/** A message box under a thread with no task in progress: answer "which repository?", or send the next task. */
+function FollowUp({ thread, lastRepo }: { thread: string; lastRepo: string }) {
+  const [repo, setRepo] = useState(lastRepo || (localStorage.getItem('pw.repo') ?? ''))
+  const [task, setTask] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [repos, setRepos] = useState<RepoInfo[]>([])
+  useEffect(() => { team.repos().then(setRepos).catch(() => {}) }, [])
+  const badRepo = repo.trim() !== '' && !repo.includes('/')
+  const send = async () => {
+    if (!task.trim() || badRepo || busy) return
+    setBusy(true)
+    try { await team.create(repo.trim(), task.trim(), thread); setTask('') }
+    catch (e) { toast(`Could not send that: ${String(e).slice(0, 200)}`, 'err') }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="glass r-lg mb-3 shrink-0 space-y-2 p-2.5">
+      <div className="flex gap-2">
+        <input className="field mono r-sm w-48 shrink-0 px-2.5 py-1.5 text-xs outline-none sm:w-60" list="pw-repos-followup" value={repo}
+          onChange={(e) => setRepo(e.target.value)} placeholder="owner/repository" aria-label="Repository" aria-invalid={badRepo} />
+        <datalist id="pw-repos-followup">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
+        {repos.length > 0 && <span className="hidden truncate self-center text-[11px] md:inline" style={{ color: 'var(--dim)' }}>Configured: {repos.map((r) => r.repo).join(', ')}</span>}
+      </div>
+      <div className="flex items-end gap-2">
+        <textarea className="field r-sm min-h-[2.4rem] w-full px-3 py-2 text-sm outline-none" rows={2} placeholder="Send another task or answer the question above"
+          aria-label="Message" value={task} onChange={(e) => setTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }} />
+        <Btn onClick={send} disabled={busy || !task.trim() || badRepo}>{busy ? 'Sending…' : 'Send'}</Btn>
+      </div>
+      {badRepo && <p className="px-1 text-xs" style={{ color: 'var(--err)' }}>Use the owner/repository form.</p>}
     </div>
   )
 }
