@@ -1,0 +1,372 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta name='color-scheme' content='light dark'><title>Pullwright code walkthrough</title><style>
+:root{--bg:#f7f7f5;--paper:#fff;--ink:#16171b;--quiet:#55585f;--line:#d9dbe0;--axis:#8d9098;--tint:#f1f2f4;--accent:#2a6fd6;--accent-fill:rgba(42,111,214,.10);--code:#f1f2f4}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1013;--paper:#16171b;--ink:#eceef2;--quiet:#a6a9b1;--line:#2c2e35;--axis:#80838c;--tint:#1d1f24;--accent:#5b9cf0;--accent-fill:rgba(91,156,240,.14);--code:#1f2126}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:860px;margin:0 auto;padding:48px 24px 80px}
+.hero{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;margin-bottom:32px}
+.hero h1{margin:0 0 8px;font-size:32px;line-height:1.2;letter-spacing:-.02em}
+.hero p.tag{margin:0;color:var(--quiet);font-size:17px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:24px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.stat span{color:var(--quiet);font-size:13px}
+h2{font-size:22px;letter-spacing:-.01em;margin:40px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+p,li{max-width:72ch}a{color:var(--accent)}code{font:13px ui-monospace,"Cascadia Code",Consolas,monospace;background:var(--code);padding:.1em .35em;border-radius:5px}
+blockquote{margin:0;color:var(--quiet)}
+.tablewrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--quiet);font-size:13px;background:var(--tint)}tr:last-child td{border-bottom:0}
+figure{margin:20px 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px}
+figure svg{width:100%;height:auto;display:block}
+svg .title{font-size:15px;font-weight:600;fill:var(--ink)}svg .name{font-size:13px;font-weight:600;fill:var(--ink)}
+svg .sub{font-size:11.5px;fill:var(--quiet)}svg .sub.strong{fill:var(--ink)}svg .bold{font-weight:600}svg .zonename{font-size:11.5px;font-weight:600;fill:var(--quiet)}
+svg .box{fill:none;stroke:var(--axis);stroke-width:1.25}svg .box.accent{fill:var(--accent-fill);stroke:var(--accent);stroke-width:2}
+svg .zone{fill:none;stroke:var(--line);stroke-width:1.25}svg .zone.tint{fill:var(--tint)}
+svg .line{fill:none;stroke:var(--axis);stroke-width:1.25}svg .dashed{stroke-dasharray:4 3}svg .head{fill:var(--axis)}svg .gate{fill:var(--tint);stroke:var(--axis);stroke-width:1.25}
+footer{margin-top:48px;color:var(--quiet);font-size:14px}
+@media (max-width:600px){main{padding:24px 16px 56px}.hero{padding:22px}.hero h1{font-size:26px}}
+@media print{body{background:#fff}main{max-width:none;padding:0}.hero,figure,.tablewrap{break-inside:avoid}h2{break-after:avoid}}
+
+.toc{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:0 0 28px}
+.toc b{display:block;font-size:13px;color:var(--quiet);margin-bottom:6px}
+.toc ul{margin:0;padding-left:0;list-style:none;columns:2;column-gap:28px}.toc li{font-size:14px;break-inside:avoid;padding:1px 0}
+@media (max-width:600px){.toc ul{columns:1}}
+h3{font-size:17px;margin:24px 0 8px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:13px;line-height:1.45}
+pre code{background:none;padding:0}
+a code{color:var(--accent)}
+svg .msg{font-size:11px;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:4px;stroke-linejoin:round}
+svg .lane{stroke:var(--line);stroke-width:1.25;stroke-dasharray:3 4}
+svg .num{font-size:10px;font-weight:600;fill:var(--accent)}
+</style></head><body><main><header class='hero'><h1>Code walkthrough: from login to pull request</h1><div class='tag'><p>This follows one request through the code: logging in, sending a message, planning, approval, the queue, the runner, the coder, the checks, and the pull request. Paths are relative to the repository root; <code>server/pullwright/...</code> is the Python package, <code>web/src/...</code> the React UI. Line numbers are as of 2026-11-13.</p></div></header><nav class='toc' aria-label='Contents'><b>Contents</b><ul><li><a href='#the-pieces'>The pieces</a></li><li><a href='#the-whole-flow-in-order'>The whole flow, in order</a></li><li><a href='#1-startup-servebuild'>1. Startup: <code>serve.build()</code></a></li><li><a href='#2-login'>2. Login</a></li><li><a href='#3-sending-a-message'>3. Sending a message</a></li><li><a href='#4-intake-routing-a-message-intakepy'>4. Intake: routing a message (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py'><code>intake.py</code></a>)</a></li><li><a href='#5-planning-pipelineplanpy'>5. Planning (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/plan.py'><code>pipeline/plan.py</code></a>)</a></li><li><a href='#6-the-ui-while-this-happens'>6. The UI while this happens</a></li><li><a href='#7-the-dispatcher-dispatcherpy'>7. The dispatcher (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/dispatcher.py'><code>dispatcher.py</code></a>)</a></li><li><a href='#8-inside-the-runner-runnerjobpy'>8. Inside the runner (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py'><code>runner/job.py</code></a>)</a></li><li><a href='#9-the-workflow-workrun-pipelineworkpy'>9. The workflow: <code>WorkRun</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py'><code>pipeline/work.py</code></a>)</a></li><li><a href='#10-the-coder-coderspy'>10. The coder (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/coders.py'><code>coders.py</code></a>)</a></li><li><a href='#11-the-llm-proxy-llm_proxypy'>11. The LLM proxy (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/llm_proxy.py'><code>llm_proxy.py</code></a>)</a></li><li><a href='#12-what-protects-what'>12. What protects what</a></li><li><a href='#13-where-state-lives'>13. Where state lives</a></li><li><a href='#14-where-to-start-reading'>14. Where to start reading</a></li></ul></nav><h2 id="the-pieces">The pieces</h2>
+<figure><svg viewBox='0 0 760 540' role='img' aria-label='One control plane, one throwaway runner per issue, GitHub as the queue'><defs><marker id='wt-arch' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M0 0L10 5L0 10z' class='head'/></marker></defs><text x='24' y='30' class='title'>One control plane, one throwaway runner per issue, GitHub as the queue</text><rect x='168' y='56' width='388' height='350' rx='8' class='zone'/><text x='184' y='76' class='zonename' text-anchor='start'>Control plane: pullwright-serve</text><rect x='576' y='56' width='176' height='350' rx='8' class='zone tint'/><text x='592' y='76' class='zonename' text-anchor='start'>Runner: per issue</text><path d='M140 125H183' class='line ' marker-end='url(#wt-arch)'/><path d='M345 125H373' class='line ' marker-end='url(#wt-arch)'/><path d='M455 151V187' class='line ' marker-end='url(#wt-arch)'/><path d='M265 151V187' class='line dashed' marker-end='url(#wt-arch)'/><path d='M265 293V241' class='line dashed' marker-end='url(#wt-arch)'/><path d='M665 151V181' class='line ' marker-end='url(#wt-arch)'/><path d='M665 233V256' class='line ' marker-end='url(#wt-arch)'/><path d='M665 308V323' class='line ' marker-end='url(#wt-arch)'/><path d='M590 282H563V320H537' class='line ' marker-end='url(#wt-arch)'/><path d='M265 346V372H570V125H588' class='line ' marker-end='url(#wt-arch)'/><path d='M455 346V430H560V458' class='line ' marker-end='url(#wt-arch)'/><path d='M265 346V398H300V458' class='line dashed' marker-end='url(#wt-arch)'/><path d='M742 125H752V512H402' class='line ' marker-end='url(#wt-arch)'/><rect x='20.0' y='97.0' width='120' height='56' rx='8' class='box'/><text x='80' y='121' class='name' text-anchor='middle'>React UI</text><text x='80' y='139' class='sub' text-anchor='middle'>web/src</text><rect x='185.0' y='99.0' width='160' height='52' rx='8' class='box'/><text x='265' y='121' class='name' text-anchor='middle'>web.py</text><text x='265' y='139' class='sub' text-anchor='middle'>login, /api, threads</text><rect x='375.0' y='99.0' width='160' height='52' rx='8' class='box'/><text x='455' y='121' class='name' text-anchor='middle'>intake.py</text><text x='455' y='139' class='sub' text-anchor='middle'>route, plan, decide</text><rect x='185.0' y='189.0' width='160' height='52' rx='8' class='box'/><text x='265' y='211' class='name' text-anchor='middle'>store.py</text><text x='265' y='229' class='sub' text-anchor='middle'>SQLite or Postgres</text><rect x='375.0' y='189.0' width='160' height='52' rx='8' class='box'/><text x='455' y='211' class='name' text-anchor='middle'>pipeline/plan.py</text><text x='455' y='229' class='sub' text-anchor='middle'>describer + verifier</text><rect x='185.0' y='294.0' width='160' height='52' rx='8' class='box'/><text x='265' y='316' class='name' text-anchor='middle'>dispatcher.py</text><text x='265' y='334' class='sub' text-anchor='middle'>queue to runner</text><rect x='375.0' y='294.0' width='160' height='52' rx='8' class='box accent'/><text x='455' y='316' class='name' text-anchor='middle'>llm_proxy.py</text><text x='455' y='334' class='sub strong' text-anchor='middle'>job tokens, dollar caps</text><rect x='588.0' y='99.0' width='154' height='52' rx='8' class='box'/><text x='665' y='121' class='name' text-anchor='middle'>runner/job.py</text><text x='665' y='139' class='sub' text-anchor='middle'>clone, push, PR</text><rect x='588.0' y='181.0' width='154' height='52' rx='8' class='box'/><text x='665' y='203' class='name' text-anchor='middle'>pipeline/work.py</text><text x='665' y='221' class='sub' text-anchor='middle'>rounds, review</text><rect x='588.0' y='256.0' width='154' height='52' rx='8' class='box accent'/><text x='665' y='278' class='name' text-anchor='middle'>coders.py</text><text x='665' y='296' class='sub strong' text-anchor='middle'>goose, Claude, native</text><rect x='588.0' y='326.0' width='154' height='46' rx='8' class='box'/><text x='665' y='345' class='name' text-anchor='middle'>checks.py</text><text x='665' y='363' class='sub' text-anchor='middle'>commands decide</text><rect x='200.0' y='458.0' width='200' height='52' rx='8' class='box'/><text x='300' y='480' class='name' text-anchor='middle'>GitHub</text><text x='300' y='498' class='sub' text-anchor='middle'>issues, labels, PRs</text><rect x='460.0' y='458.0' width='200' height='52' rx='8' class='box'/><text x='560' y='480' class='name' text-anchor='middle'>Anthropic API</text><text x='560' y='498' class='sub' text-anchor='middle'>every model call</text><text x='162' y='112' class='sub' text-anchor='middle'>fetch /api</text><text x='362' y='252' class='sub' text-anchor='start'>events</text><text x='410' y='366' class='sub' text-anchor='middle'>docker run</text><text x='472' y='444' class='sub' text-anchor='start'>model calls, capped</text><text x='306' y='424' class='sub' text-anchor='start'>poll queued label</text><text x='744' y='500' class='sub' text-anchor='end'>push, open PR</text></svg></figure>
+
+<p>What runs where:</p>
+<ul>
+<li><strong>Control plane</strong> (<code>pullwright-serve</code>): one Python process with FastAPI, the planning agents, the dispatcher thread, the LLM proxy and the store. It reads <code>server/.env</code> when it starts (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/__init__.py#L26'><code>server/pullwright/__init__.py:26</code></a>).</li>
+<li><strong>Runner</strong>: a throwaway Docker container per issue, running <code>pullwright-work owner/repo#n</code>. It has the repository checkout, the toolchains, and Claude Code and goose.</li>
+<li><strong>GitHub</strong> holds the queue: issues with labels. There is no message broker.</li>
+</ul>
+<h2 id="the-whole-flow-in-order">The whole flow, in order</h2>
+<figure><svg viewBox='0 0 760 890' role='img' aria-label='One request, start to finish'><defs><marker id='wt-seq' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M0 0L10 5L0 10z' class='head'/></marker></defs><text x='24' y='30' class='title'>One request, start to finish</text><line x1='92.0' y1='88' x2='92.0' y2='878' class='lane'/><rect x='55.0' y='53.0' width='74' height='34' rx='8' class='box'/><text x='92.0' y='74' class='name' text-anchor='middle'>Developer</text><line x1='169.5' y1='88' x2='169.5' y2='878' class='lane'/><rect x='132.5' y='53.0' width='74' height='34' rx='8' class='box'/><text x='169.5' y='74' class='name' text-anchor='middle'>React UI</text><line x1='247.0' y1='88' x2='247.0' y2='878' class='lane'/><rect x='210.0' y='53.0' width='74' height='34' rx='8' class='box'/><text x='247.0' y='74' class='name' text-anchor='middle'>web.py</text><line x1='324.5' y1='88' x2='324.5' y2='878' class='lane'/><rect x='287.5' y='53.0' width='74' height='34' rx='8' class='box accent'/><text x='324.5' y='74' class='name' text-anchor='middle'>intake.py</text><line x1='402.0' y1='88' x2='402.0' y2='878' class='lane'/><rect x='365.0' y='53.0' width='74' height='34' rx='8' class='box'/><text x='402.0' y='74' class='name' text-anchor='middle'>PlanRun</text><line x1='479.5' y1='88' x2='479.5' y2='878' class='lane'/><rect x='442.5' y='53.0' width='74' height='34' rx='8' class='box'/><text x='479.5' y='74' class='name' text-anchor='middle'>GitHub</text><line x1='557.0' y1='88' x2='557.0' y2='878' class='lane'/><rect x='520.0' y='53.0' width='74' height='34' rx='8' class='box'/><text x='557.0' y='74' class='name' text-anchor='middle'>Dispatcher</text><line x1='634.5' y1='88' x2='634.5' y2='878' class='lane'/><rect x='597.5' y='53.0' width='74' height='34' rx='8' class='box accent'/><text x='634.5' y='74' class='name' text-anchor='middle'>Runner</text><line x1='712.0' y1='88' x2='712.0' y2='878' class='lane'/><rect x='675.0' y='53.0' width='74' height='34' rx='8' class='box'/><text x='712.0' y='74' class='name' text-anchor='middle'>LLM proxy</text><path d='M92.0 120H166.5' class='line' marker-end='url(#wt-seq)'/><text x='130.75' y='115' class='msg' text-anchor='middle'>open the app</text><text x='24' y='124' class='num'>1</text><path d='M169.5 150H244.0' class='line' marker-end='url(#wt-seq)'/><text x='208.25' y='145' class='msg' text-anchor='middle'>GET /api/me (cookie)</text><text x='24' y='154' class='num'>2</text><path d='M247.0 180H172.5' class='line dashed' marker-end='url(#wt-seq)'/><text x='208.25' y='175' class='msg' text-anchor='middle'>401: GitHub login, cookie set</text><text x='24' y='184' class='num'>3</text><path d='M92.0 210H166.5' class='line' marker-end='url(#wt-seq)'/><text x='130.75' y='205' class='msg' text-anchor='middle'>&quot;owner/repo: add X&quot;</text><text x='24' y='214' class='num'>4</text><path d='M169.5 240H244.0' class='line' marker-end='url(#wt-seq)'/><text x='208.25' y='235' class='msg' text-anchor='middle'>POST /api/requests</text><text x='24' y='244' class='num'>5</text><path d='M247.0 270H321.5' class='line' marker-end='url(#wt-seq)'/><text x='285.75' y='265' class='msg' text-anchor='middle'>on_mention(Mention)</text><text x='24' y='274' class='num'>6</text><path d='M324.5 294H346.5V308H327.5' class='line' marker-end='url(#wt-seq)'/><text x='352.5' y='305' class='msg'>question, change, or reply?</text><text x='24' y='304' class='num'>7</text><path d='M324.5 330H399.0' class='line' marker-end='url(#wt-seq)'/><text x='363.25' y='325' class='msg' text-anchor='middle'>plan (background)</text><text x='24' y='334' class='num'>8</text><path d='M402.0 360H327.5' class='line dashed' marker-end='url(#wt-seq)'/><text x='363.25' y='355' class='msg' text-anchor='middle'>plan card, waits for a decision</text><text x='24' y='364' class='num'>9</text><path d='M169.5 390H244.0' class='line' marker-end='url(#wt-seq)'/><text x='208.25' y='385' class='msg' text-anchor='middle'>GET /api/threads/{id} every 2 s</text><text x='24' y='394' class='num'>10</text><path d='M92.0 420H166.5' class='line' marker-end='url(#wt-seq)'/><text x='130.75' y='415' class='msg' text-anchor='middle'>Approve (button or &quot;lgtm&quot;)</text><text x='24' y='424' class='num'>11</text><path d='M169.5 450H244.0' class='line' marker-end='url(#wt-seq)'/><text x='208.25' y='445' class='msg' text-anchor='middle'>POST /decision</text><text x='24' y='454' class='num'>12</text><path d='M247.0 480H321.5' class='line' marker-end='url(#wt-seq)'/><text x='285.75' y='475' class='msg' text-anchor='middle'>on_decision: write access?</text><text x='24' y='484' class='num'>13</text><path d='M324.5 510H476.5' class='line' marker-end='url(#wt-seq)'/><text x='402.0' y='505' class='msg' text-anchor='middle'>open issue, label queued</text><text x='24' y='514' class='num'>14</text><path d='M557.0 540H482.5' class='line' marker-end='url(#wt-seq)'/><text x='518.25' y='535' class='msg' text-anchor='middle'>every 30 s: oldest queued</text><text x='24' y='544' class='num'>15</text><path d='M557.0 564H579.0V578H560.0' class='line' marker-end='url(#wt-seq)'/><text x='585.0' y='575' class='msg'>fresh token, job token</text><text x='24' y='574' class='num'>16</text><path d='M557.0 600H631.5' class='line' marker-end='url(#wt-seq)'/><text x='595.75' y='595' class='msg' text-anchor='middle'>docker run pullwright-work</text><text x='24' y='604' class='num'>17</text><path d='M634.5 630H482.5' class='line' marker-end='url(#wt-seq)'/><text x='557.0' y='625' class='msg' text-anchor='middle'>clone</text><text x='24' y='634' class='num'>18</text><path d='M634.5 660H709.0' class='line' marker-end='url(#wt-seq)'/><text x='673.25' y='655' class='msg' text-anchor='middle'>coder&#x27;s model calls</text><text x='24' y='664' class='num'>19</text><path d='M634.5 684H612.5V698H631.5' class='line' marker-end='url(#wt-seq)'/><text x='606.5' y='695' class='msg' text-anchor='end'>checks, 1 fix round, review</text><text x='24' y='694' class='num'>20</text><path d='M634.5 720H709.0' class='line' marker-end='url(#wt-seq)'/><text x='673.25' y='715' class='msg' text-anchor='middle'>POST /llm/github-token</text><text x='24' y='724' class='num'>21</text><path d='M634.5 750H482.5' class='line' marker-end='url(#wt-seq)'/><text x='557.0' y='745' class='msg' text-anchor='middle'>push branch, open PR</text><text x='24' y='754' class='num'>22</text><path d='M634.5 780H560.0' class='line dashed' marker-end='url(#wt-seq)'/><text x='595.75' y='775' class='msg' text-anchor='middle'>PWEVENT lines, PWRESULT</text><text x='24' y='784' class='num'>23</text><path d='M557.0 810H327.5' class='line' marker-end='url(#wt-seq)'/><text x='440.75' y='805' class='msg' text-anchor='middle'>on_job_done: PR link to thread</text><text x='24' y='814' class='num'>24</text><path d='M169.5 840H244.0' class='line' marker-end='url(#wt-seq)'/><text x='208.25' y='835' class='msg' text-anchor='middle'>GET /activity: runner panel</text><text x='24' y='844' class='num'>25</text></svg></figure>
+
+<p>The rest of this page goes through each step.</p>
+<hr />
+<h2 id="1-startup-servebuild">1. Startup: <code>serve.build()</code></h2>
+<p><a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/serve.py#L60'><code>server/pullwright/serve.py:60</code></a> builds the app:</p>
+<ol>
+<li><strong>GitHub client</strong>: a GitHub App (<code>AppAuth</code>, installation tokens per repository) or a personal token for development (<code>github_from_env</code>, <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/serve.py#L34'><code>serve.py:34</code></a>).</li>
+<li><strong>Store</strong>: <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/store.py#L95'><code>store.py:95</code></a>, SQLite at <code>server/pullwright.db</code>, or Postgres if <code>PULLWRIGHT_DB=postgresql://...</code>. Tables: <code>requests</code>, <code>thread_messages</code>, <code>events</code>, <code>identities</code>, <code>repo_profiles</code>, <code>runs</code>.</li>
+<li><strong>Intake</strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L130'><code>intake.py:130</code></a>) with the allowed repositories, the planning budget, and a <code>LinkSigner</code> for Slack/Teams account linking.</li>
+<li><strong>Organisation config</strong>: <code>orgconfig.sync()</code> fetches the skills/rules repository (<code>PULLWRIGHT_ORG_CONFIG</code>) and pins its commit. It fails closed: no config, no start. A thread refreshes it every 5 minutes.</li>
+<li><strong>Knowledge base</strong>: profiles each allowed repository in the background, so a task that names no repository can be matched to one.</li>
+<li><strong>Channels</strong>: the web channel is always registered; Slack and Teams only if their tokens are set.</li>
+<li><strong><code>intake.recover()</code></strong>: plans left waiting by a previous process are closed, with a note in their thread.</li>
+<li><strong>LLM proxy</strong>: if <code>PULLWRIGHT_LLM_PROXY_URL</code> is set, a <code>Ledger</code> of job tokens plus the <code>/llm</code> routes (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/llm_proxy.py#L149'><code>llm_proxy.py:149</code></a>).</li>
+<li><strong>Routers</strong>: <code>/auth/...</code> at the root, the JSON API under <code>/api</code>, the built React app (<code>web/dist</code>) at <code>/</code>.</li>
+<li><strong>Dispatcher thread</strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/serve.py#L128'><code>serve.py:~128</code></a>), with two callbacks:<ul>
+<li><code>on_event</code> stores each runner event and lets intake move the request from queued to working;</li>
+<li><code>done</code> posts the result to the chat thread.</li>
+</ul>
+</li>
+</ol>
+<h2 id="2-login">2. Login</h2>
+<p><strong>UI.</strong> <a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/App.tsx'><code>web/src/App.tsx</code></a> calls <code>useMe()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/Requests.tsx'><code>web/src/Requests.tsx</code></a>), which does <code>GET /api/me</code>. A 401 shows <code>LoginScreen</code>, whose button goes to <code>/auth/github/login</code>.</p>
+<p><strong>Server</strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py'><code>web.py</code></a>):</p>
+<ul>
+<li><code>login</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L99'><code>web.py:99</code></a>): redirects to GitHub's OAuth page. The <code>state</code> parameter is signed (<code>Signer</code>, <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L36'><code>web.py:36</code></a>, HMAC with <code>PULLWRIGHT_SECRET</code>) and expires in 10 minutes.</li>
+<li><code>callback</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L107'><code>web.py:107</code></a>): checks the state, exchanges the code for a token, reads the GitHub user, and sets the <code>pw_session</code> cookie: signed JSON <code>{login, name, exp}</code>, HttpOnly, valid 14 days. Nothing is stored server-side; the signature is the session.</li>
+<li><code>me(request)</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L88'><code>web.py:88</code></a>) is how every API route finds the user: it verifies the cookie or returns 401.</li>
+<li><strong>Account linking</strong> for Slack/Teams users: <code>/link?token=...</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L127'><code>web.py:127</code></a>) carries a token signed by <code>LinkSigner</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L100'><code>intake.py:100</code></a>). After the GitHub login, <code>intake.complete_link</code> stores <code>channel user id -&gt; GitHub login</code> in <code>identities</code>. That's how a Slack user's issues and PRs can tag their GitHub account.</li>
+</ul>
+<h2 id="3-sending-a-message">3. Sending a message</h2>
+<p><strong>UI.</strong>
+- <code>Composer</code> (new thread) and <code>FollowUp</code> (an existing thread) in <a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/Requests.tsx'><code>web/src/Requests.tsx</code></a>. Both use <code>GrowingInput</code>: Enter sends, Shift+Enter adds a line.
+- They call <code>team.create(repo, task, thread?)</code> in <a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/api.ts'><code>web/src/api.ts</code></a>, which is <code>POST /api/requests</code>.</p>
+<p><strong>Server.</strong> <code>create</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/web.py#L144'><code>web.py:144</code></a>):
+1. <strong>Thread:</strong> if a thread id is given, it must be the user's own thread, and its task must not be in <code>planning</code> (409).
+2. <strong>Store the message:</strong> the user's message goes into <code>thread_messages</code> (the web channel keeps its own history).
+3. <strong>Hand it on:</strong> it calls <code>intake.on_mention(Mention(user, text, {"thread": id}, url))</code>.</p>
+<p>Slack (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/channels/slack.py'><code>channels/slack.py</code></a>) and Teams (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/channels/teams.py'><code>channels/teams.py</code></a>) build the same <code>Mention</code> from their own events. From here on, every channel is handled the same way.</p>
+<h2 id="4-intake-routing-a-message-intakepy">4. Intake: routing a message (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py'><code>intake.py</code></a>)</h2>
+<p><code>on_mention</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L187'><code>intake.py:187</code></a>) goes through these steps:</p>
+<ol>
+<li><strong>Commands:</strong> <code>link</code> and <code>help</code> are answered directly.</li>
+<li><strong>Who:</strong> <code>developer()</code> maps the chat user to a GitHub login. Without one, the user gets a link to connect their account.</li>
+<li><strong>Which repository:</strong> <code>split_repo()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L81'><code>intake.py:81</code></a>). A repository counts if it leads the message (<code>owner/name: ...</code>) or is a configured one; words like <code>long/short</code> are not repositories. Otherwise: the thread's repository, the channel's default, or the knowledge base's guess (it says what it picked and why). It must be in <code>PULLWRIGHT_REPOS</code>.</li>
+<li><strong>Thread state:</strong> <code>_thread_requests()</code> finds the thread's requests. A thread has at most one task in progress (<code>planning</code>, <code>awaiting_approval</code>, <code>queued</code>, <code>working</code>). While a plan is being drafted, new messages are held back.</li>
+<li><strong>Intent.</strong> <code>quick_intent()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L65'><code>intake.py:65</code></a>) handles the obvious cases without a model:</li>
+<li>the first message starts with a change verb (<code>add</code>, <code>fix</code>, <code>build</code>, ...): <strong>change</strong>;</li>
+<li>a plan is waiting and the reply is <code>approve</code>, <code>lgtm</code> or <code>cancel</code>, or starts with <code>revise: ...</code>: that decision.</li>
+</ol>
+<p>Anything else goes to the <strong>responder</strong> (<code>defaults/agents/responder.md</code>). It's a read-only agent that sees the repository map, the last 12 messages of the thread, the waiting plan and the fetched links, and returns <code>{intent, reply, task}</code> (<code>RESPOND_SCHEMA</code>):</p>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Intent</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>answer</code></td>
+<td><code>_respond()</code> posts the reply; the request becomes <code>answered</code>, with its cost</td>
+</tr>
+<tr>
+<td><code>change</code></td>
+<td>The responder's <code>task</code> (the conversation written up as one request) is planned</td>
+</tr>
+<tr>
+<td><code>approve</code> / <code>revise</code> / <code>cancel</code> on a waiting plan</td>
+<td><code>_act_on_plan()</code> calls <code>on_decision()</code>, the same path as the buttons</td>
+</tr>
+<tr>
+<td>6. <strong>Links</strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/links.py'><code>links.py</code></a>) are fetched before the responder or the describer runs. GitHub issues and PRs are read through the App; other pages are https only, public addresses only, at most 5.</td>
+<td></td>
+</tr>
+<tr>
+<td>7. <strong>New request:</strong> <code>store.create_request()</code> records it as <code>planning</code>, and the planning or answering runs on a thread pool (<code>max_planning</code>, default 3), so the HTTP call returns at once.</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>Every reply goes through <code>_reply()</code>. That posts it on the channel and also records it in <code>thread_messages</code> for Slack and Teams, so the responder has the conversation there too.</p>
+<h2 id="5-planning-pipelineplanpy">5. Planning (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/plan.py'><code>pipeline/plan.py</code></a>)</h2>
+<p><code>_plan()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L490'><code>intake.py:490</code></a>):</p>
+<ol>
+<li><strong>Clone:</strong> refresh a read-only clone of the repository (<code>_repo_clone</code>). No code from it is run; <code>Session(hooks=False)</code>.</li>
+<li><strong>Session</strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/session.py#L32'><code>session.py:32</code></a>): the planning budget (<code>PULLWRIGHT_PLAN_MAX_COST_USD</code>, default $1). Its event bus writes to the store (<code>store.append</code>), so the UI can show "describer is reading the repository".</li>
+<li><strong><code>PlanRun.run()</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/plan.py#L142'><code>plan.py:142</code></a>):</li>
+<li><code>describe()</code>: the describer (Sonnet, read-only tools <code>read_file</code>, <code>glob</code>, <code>grep</code>) writes the plan as JSON (<code>PLAN_SCHEMA</code>): title, a short summary, relevant files, steps, acceptance criteria, test plan, risks, questions;</li>
+<li><code>verify()</code>: the verifier checks the plan against the code (<code>VERIFY_SCHEMA</code>: approved, corrections, evidence). If it objects, the describer gets one more pass with the corrections;</li>
+<li><code>reviewer.review_plan()</code>: <code>_ChannelReviewer</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L566'><code>intake.py:566</code></a>) posts the plan card (<code>channel.show_plan</code>), sets the request to <code>awaiting_approval</code>, and <strong>blocks</strong> that planning thread until a decision arrives in a queue (<code>_PendingReview</code>), or a week passes;</li>
+<li>on <strong>revise</strong>, the loop runs again with the feedback (at most 3 revisions); on <strong>cancel</strong> it raises <code>PlanCancelled</code>.</li>
+<li><strong>Approve:</strong> <code>on_decision()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/intake.py#L248'><code>intake.py:248</code></a>) checks that the approver has write access (<code>gh.can_write</code>) before the decision is accepted. Then <code>issues.open_issue()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/github/issues.py#L99'><code>github/issues.py:99</code></a>) creates the issue:</li>
+<li>a readable body: requester, approver, request and plan;</li>
+<li>a hidden <code>&lt;!-- pullwright:{...} --&gt;</code> block with the task, the structured plan, the requester and the thread address. This is what the runner reads later;</li>
+<li>labels <code>pullwright</code> and <code>pullwright:queued</code>.</li>
+<li><strong>Costs and reply:</strong> planning costs go into <code>requests.costs</code> (stage <code>plan</code>), and the thread gets the issue link.</li>
+</ol>
+<p>Each agent call goes through <code>Session.run()</code>, then <code>agent.run_agent()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/agent.py#L41'><code>agent.py:41</code></a>), the tool loop:
+- call the model, emit <code>usage</code> with tokens and cost (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pricing.py'><code>pricing.py</code></a>);
+- run each tool the model asked for (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/tools.py'><code>tools.py</code></a>), emit <code>tool_call</code> and <code>tool_result</code>;
+- repeat until the model stops, the turn limit is reached, or the dollar cap is spent.</p>
+<p><code>providers/</code> turns each call into an Anthropic or OpenAI-compatible request (or a proxy request in a runner).</p>
+<h2 id="6-the-ui-while-this-happens">6. The UI while this happens</h2>
+<ul>
+<li><strong><code>Thread</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/Requests.tsx'><code>web/src/Requests.tsx</code></a>) polls <code>GET /api/threads/{id}?after=n</code> every 2 seconds:</li>
+<li><strong>messages</strong>: user bubbles, bot replies (markdown), plan cards;</li>
+<li><strong>request row</strong>: state, issue, PR, cost.</li>
+<li><strong><code>PlanCard</code></strong>:</li>
+<li>shows title, summary (clamped), Steps, Files and Tests;</li>
+<li>Verifier, Done when and Risks are folded;</li>
+<li>the buttons call <code>POST /api/requests/{rid}/decision</code>.</li>
+<li><strong><code>useActivity</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/Timeline.tsx'><code>web/src/Timeline.tsx</code></a>) polls <code>GET /api/requests/{rid}/activity</code> (planning and runner events from <code>events</code>) every 2 seconds while the request is live:</li>
+<li><code>steps()</code> turns them into the lifecycle (Plan, Approve, Queue, Runner, Pull request);</li>
+<li><code>RunnerPanel</code> shows the run's state, check results, agents and recent tool calls.</li>
+<li><strong>Layout:</strong> in landscape at 1024 px or wider, the lifecycle sits in a column on the right; otherwise above the chat.</li>
+</ul>
+<h3 id="the-pr-in-the-chat-and-the-chat-on-the-pr">The PR in the chat, and the chat on the PR</h3>
+<p>Once a request has an open PR:</p>
+<ul>
+<li><strong>GitHub → chat:</strong> a thread started by <code>serve.build</code> runs <code>intake.sync_github()</code> every <code>PULLWRIGHT_GITHUB_SYNC_SECONDS</code>. For each <code>pr_open</code> / <code>pr_draft</code> request it reads <code>feedback.conversation()</code> (comments, inline comments, reviews; no bots, no chat echoes), skips what <code>store.synced()</code> already has, and posts the rest. The web UI gets <code>github</code> messages, rendered as cards by <code>GitHubComment</code> in <a href='https://github.com/Mystery01092000/pullwright/blob/main/web/src/Requests.tsx'><code>web/src/Requests.tsx</code></a>; Slack and Teams get a short reply.</li>
+<li><strong>Chat → GitHub:</strong> <code>on_mention</code> sends a message in a thread whose PR is open to <code>_converse_pr()</code>. The responder answers a question in the chat. A change is checked for write access, then posted with <code>gh.comment()</code> as <code>feedback.chat_comment()</code>: the developer's words, a signature, the folded reading and the hidden marker. The PR follow-up loop (section 8) picks it up like any review comment. The dispatcher passes the App's bot login so the collector trusts only that account's markers.</li>
+</ul>
+<h2 id="7-the-dispatcher-dispatcherpy">7. The dispatcher (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/dispatcher.py'><code>dispatcher.py</code></a>)</h2>
+<p>A thread runs <code>serve()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/dispatcher.py#L171'><code>dispatcher.py:171</code></a>), which calls <code>tick()</code> every <code>PULLWRIGHT_POLL_SECONDS</code> (30):</p>
+<ol>
+<li><strong>Capacity:</strong> if fewer than <code>PULLWRIGHT_MAX_PARALLEL</code> jobs are running, <code>next_job()</code> picks one:</li>
+<li>review feedback on an open Pullwright PR first (<code>feedback_job</code>);</li>
+<li>otherwise the oldest <code>pullwright:queued</code> issue (<code>issue_job</code>, <code>issues.queued()</code>).</li>
+<li><strong>Claim:</strong> the issue is relabelled <code>pullwright:working</code> before the container starts, so the next poll can't pick it twice.</li>
+<li><strong>The <code>Job</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runners/base.py'><code>runners/base.py</code></a>) is the repository, the issue number, and:</li>
+<li><strong>a newly minted GitHub token</strong> scoped to that one repository (<code>gh.auth.token(repo, fresh=True)</code>, valid one hour);</li>
+<li><strong>environment</strong> (<code>_env</code>): caps and model settings. With the LLM proxy it also gets the proxy URL, a <strong>job token</strong> with the dollar cap (<code>Ledger.issue</code>) and a <strong>refresh secret</strong>, instead of provider keys. It also gets the org config's pinned commit and a read-only token for it.</li>
+<li><strong>Start:</strong> <code>_run()</code> starts the container (<code>DockerRunner.start</code>, <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runners/docker.py#L66'><code>runners/docker.py:66</code></a>):</li>
+<li><code>docker run --rm --init --user 1000:1000</code>, CPU, memory and PID limits, <code>no-new-privileges</code>;</li>
+<li>the shared cache volume at <code>/home/runner/.cache</code>;</li>
+<li><code>timeout 90m pullwright-work owner/repo#n</code>;</li>
+<li>secrets go in as <code>-e NAME</code>, so they never appear on a command line.</li>
+<li><strong>Follow:</strong> <code>follow()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runners/base.py#L65'><code>runners/base.py:65</code></a>) reads the container's output:</li>
+<li><code>PWEVENT {...}</code> lines go to <code>on_event</code> (the store and the UI);</li>
+<li>the final <code>PWRESULT {...}</code> line is the job's result;</li>
+<li>everything else goes to the server log.</li>
+<li><strong>Settle:</strong> <code>_settle()</code> revokes the job token and keeps the proxy's spend record, which the runner can't alter. If the container ended without a result, the issue is labelled <code>pullwright:failed</code> with a comment. <code>on_done</code> then calls <code>intake.on_job_done()</code>, which records costs, sets <code>pr_open</code> / <code>pr_draft</code> / <code>failed</code>, and posts the PR link in the thread.</li>
+</ol>
+<h2 id="8-inside-the-runner-runnerjobpy">8. Inside the runner (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py'><code>runner/job.py</code></a>)</h2>
+<p><code>main()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py#L192'><code>job.py:192</code></a>):</p>
+<ol>
+<li>Stdout becomes the event stream (<code>_stdout_sink</code>: each event is printed as a <code>PWEVENT</code> line).</li>
+<li>In a temporary folder, <code>orgconfig.load_in_runner()</code> fetches the pinned org config commit into <code>&lt;tmp&gt;/org-config</code>. It sits next to the checkout, not inside it, so it is never committed.</li>
+<li><strong><code>run_job()</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py#L87'><code>job.py:87</code></a>):</li>
+<li><code>issues.parse()</code> reads the hidden block in the issue body: task, plan, requester. An issue Pullwright didn't write is refused;</li>
+<li>comments "A Pullwright runner picked this up";</li>
+<li><code>git.clone()</code> with the token; the token is removed from the saved remote;</li>
+<li>a <code>Session</code> with the job budget (<code>PULLWRIGHT_MAX_COST_USD</code>), approving "ask" commands automatically: the container is the sandbox;</li>
+<li><strong><code>WorkRun(...).run()</code></strong>, the workflow (next section), with the coder chosen for this repository (<code>coders.coder_for(repo)</code>);</li>
+<li><strong><code>refresh_github(gh)</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py#L57'><code>job.py:57</code></a>): asks the control plane for a fresh GitHub token (<code>POST /llm/github-token</code>, with the job token and the refresh secret), because the work may have outlasted the first token;</li>
+<li>no commit: label <code>failed</code> and comment why. Otherwise:<ul>
+<li><code>git.push()</code>;</li>
+<li><code>prs.open_pr()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/github/prs.py#L34'><code>github/prs.py:34</code></a>): the plan's title, a body with the checks and the cost table, <code>Closes #n</code>, a review request to the requester;</li>
+<li>a work-log comment on the PR;</li>
+</ul>
+</li>
+<li>prints <code>PWRESULT {status, pr_url, cost_usd, costs, ...}</code>.</li>
+<li><strong><code>run_feedback()</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/runner/job.py#L134'><code>job.py:134</code></a>) is the same for review comments on an open PR: it checks out the PR branch and passes the comments and earlier work as context. The fix lands on the same branch.</li>
+</ol>
+<h2 id="9-the-workflow-workrun-pipelineworkpy">9. The workflow: <code>WorkRun</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py'><code>pipeline/work.py</code></a>)</h2>
+<pre><code>setup -&gt; coder -&gt; checks --fail--&gt; coder (with the failures) -&gt; checks --fail--&gt; draft PR
+                    | pass
+                    v
+                 review (diagnosis) --gaps--&gt; coder (with the gaps) -&gt; checks ...
+                    | complete
+                    v
+                 commit -&gt; green
+</code></pre>
+<p><code>run()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py#L167'><code>work.py:167</code></a>):</p>
+<ol>
+<li><strong>Branch:</strong> <code>&lt;issue&gt;-&lt;slug of the title&gt;</code> (or the PR branch, for feedback).</li>
+<li><strong><code>setup()</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py#L106'><code>work.py:106</code></a>): runs <code>.pullwright/checks.json</code> → <code>setup</code> (for example <code>uv sync</code>). If it fails, the status is <code>setup_failed</code>.</li>
+<li><strong>Each round</strong>, up to <code>max_rounds</code> (<strong>default 2</strong>, as Stripe's Minions allow at most two CI runs):</li>
+<li><strong><code>supervise(feedback)</code></strong> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py#L122'><code>work.py:122</code></a>): the agent step. The prompt (<code>_brief</code>) has the issue, the request, the approved plan, the check commands, any context, and the repository map. On the second round it also has <code>git diff --stat</code> and the failures to fix first;</li>
+<li><strong><code>run_checks()</code></strong>: <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/checks.py'><code>checks.py</code></a> runs each check command (<code>lint</code>, <code>build</code>, <code>test</code>, <code>typecheck</code>, from <code>checks.json</code> or detected from the project files). <strong>Commands decide; no model judges this.</strong> Failures are cut down to the useful lines (<code>failure_excerpt</code>);</li>
+<li>all checks pass: <strong><code>diagnose()</code></strong>, Pullwright's own reviewer agent, compares the diff with the acceptance criteria (<code>DIAG_SCHEMA</code>). Complete means <code>green</code>; gaps go back to the coder as feedback.</li>
+<li><strong><code>_finish()</code></strong>: commits everything, green or not. A red result still becomes a draft PR that shows how far it got. It then emits the final state with the cost.</li>
+</ol>
+<p>The session's budget is checked on every model call: over the cap, <code>BudgetExceeded</code> makes the status <code>budget</code>.</p>
+<h2 id="10-the-coder-coderspy">10. The coder (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/coders.py'><code>coders.py</code></a>)</h2>
+<p><code>supervise()</code> hands the agent step to the coder chosen for the repository (<code>PULLWRIGHT_CODER</code>, <code>PULLWRIGHT_CODER_BY_REPO</code>). <strong>goose is the default</strong> (<code>coders.DEFAULT_CODER</code>); see <a href="coders.md">coders</a> for how the three compared.</p>
+<p><strong><code>native</code>.</strong> A Sonnet supervisor (<code>defaults/agents/supervisor.md</code>) with a <code>spawn_worker</code> tool (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/session.py#L144'><code>session.py:144</code></a>). Each worker is a Haiku agent with a fresh context and the file and bash tools. It does one piece of the plan and reports back. Specialists from the org config are available as <code>spawn_specialist</code>.</p>
+<p><strong><code>claude-code</code> / <code>goose</code>.</strong> <code>_external()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/pipeline/work.py'><code>work.py</code></a>) calls <code>ExternalCoder.run()</code> (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/coders.py#L272'><code>coders.py:272</code></a>):</p>
+<ol>
+<li><strong>Its own <code>HOME</code>:</strong></li>
+<li>the org's and repository's skills copied to <code>~/.claude/skills</code> and <code>~/.agents/skills</code>;</li>
+<li>guard scripts in <code>~/bin</code>, first on <code>PATH</code>, that refuse <code>git push</code>, <code>gh</code>, <code>pkill</code> and <code>killall</code>.</li>
+<li><strong>Environment</strong> (<code>process_env</code>):</li>
+<li>GitHub tokens and the refresh secret removed;</li>
+<li><code>ANTHROPIC_BASE_URL</code> / <code>ANTHROPIC_HOST</code> set to the <strong>LLM proxy</strong>, and <code>ANTHROPIC_API_KEY</code> to the job token, so every call counts against the job's cap;</li>
+<li>the cache variables still point at the shared cache.</li>
+<li><strong>Prompt:</strong> the runner rules (<code>EXTERNAL_BRIEF</code>: tests first, run the checks before finishing, don't commit or push, stop processes by PID), then the org's and repo's instructions, then the brief.</li>
+<li><strong>Command:</strong></li>
+<li>Claude Code: <code>claude -p --output-format stream-json --verbose --model ... --max-turns ... --permission-mode bypassPermissions --disallowedTools ...</code>, with the prompt on stdin;</li>
+<li>goose: <code>goose run --instructions &lt;file&gt; --no-session --no-profile --with-builtin developer --output-format stream-json --max-turns ...</code>.</li>
+<li><strong>Output:</strong> each JSON line goes through <code>ClaudeStream</code> or <code>GooseStream</code>, which turn it into Pullwright events (<code>agent_start</code>, <code>text</code>, <code>tool_call</code>, <code>tool_result</code>, <code>usage</code>, <code>agent_end</code>). They go on the session's bus, so they reach the store, the runner panel, and the budget check.</li>
+<li><strong>Cost:</strong></li>
+<li>Claude Code reports usage on each message;</li>
+<li>goose reports totals at the end, so its cost is the proxy's count (<code>GET /llm/spend</code> before and after the step).</li>
+</ol>
+<h2 id="11-the-llm-proxy-llm_proxypy">11. The LLM proxy (<a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/llm_proxy.py'><code>llm_proxy.py</code></a>)</h2>
+<p>It runs inside the control plane and is reached from runners as <code>http://host.docker.internal:8765/llm</code>.</p>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /llm/anthropic/v1/messages</code></td>
+<td>Swap the job token for the real key, forward the call (streamed or not), read the usage, charge the job. Over the cap: 402</td>
+</tr>
+<tr>
+<td><code>POST /llm/anthropic/v1/messages/count_tokens</code></td>
+<td>Free; Claude Code calls it</td>
+</tr>
+<tr>
+<td><code>POST /llm/&lt;provider&gt;/chat/completions</code></td>
+<td>Any OpenAI-compatible provider</td>
+</tr>
+<tr>
+<td><code>GET /llm/spend</code></td>
+<td>The job's spend so far</td>
+</tr>
+<tr>
+<td><code>POST /llm/github-token</code></td>
+<td>A fresh GitHub token for the job's repository; needs the job token <strong>and</strong> the refresh secret, which agents never see</td>
+</tr>
+</tbody>
+</table></div>
+<p>The ledger is in memory. A control-plane restart cancels running jobs' tokens, and <code>intake.recover()</code> closes plans that were waiting.</p>
+<h2 id="12-what-protects-what">12. What protects what</h2>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Planning can't change anything</td>
+<td>Read-only tools; <code>Session(hooks=False)</code> on the control plane</td>
+</tr>
+<tr>
+<td>A person with write access approves</td>
+<td><code>on_decision()</code> → <code>gh.can_write()</code></td>
+</tr>
+<tr>
+<td>Commands decide when the work is done</td>
+<td><a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/checks.py'><code>checks.py</code></a>; the reviewer runs only after the checks pass</td>
+</tr>
+<tr>
+<td>Agents can't push or open PRs</td>
+<td>No GitHub credentials in agents' commands (<code>tools.agent_env</code>, <code>coders.SCRUB_ENV</code>); deny lists (<code>tools.DENY</code>, <code>work.RUNNER_DENY</code>); guard scripts for external coders; the pipeline pushes</td>
+</tr>
+<tr>
+<td>Agents can't end their own job</td>
+<td><code>pkill</code>, <code>killall</code> and group kills are denied</td>
+</tr>
+<tr>
+<td>Every job has a dollar cap</td>
+<td><code>Session.check_budget()</code> in the runner, and the proxy's 402 on the control plane</td>
+</tr>
+<tr>
+<td>A runner sees only its repository</td>
+<td>Installation token scoped to that repository; secrets passed as <code>-e NAME</code></td>
+</tr>
+<tr>
+<td>Org rules can't be dropped by a repository</td>
+<td><a href='https://github.com/Mystery01092000/pullwright/blob/main/server/pullwright/config.py'><code>config.py</code></a> combines deny lists and hooks; agents and skills layer defaults &lt; org &lt; repo</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="13-where-state-lives">13. Where state lives</h2>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>What</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The queue</td>
+<td>GitHub labels: <code>pullwright:queued</code> → <code>working</code> → <code>pr-open</code> / <code>failed</code>, <code>revising</code> on a PR</td>
+</tr>
+<tr>
+<td>The plan, for the runner</td>
+<td>The hidden block in the issue body</td>
+</tr>
+<tr>
+<td>Requests, threads, events, costs</td>
+<td>The store (<code>server/pullwright.db</code>)</td>
+</tr>
+<tr>
+<td>Web sessions</td>
+<td>The signed cookie</td>
+</tr>
+<tr>
+<td>Waiting plans, job tokens</td>
+<td>Control-plane memory (lost on restart)</td>
+</tr>
+<tr>
+<td>Shared package caches</td>
+<td>The <code>pullwright-cache</code> Docker volume</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="14-where-to-start-reading">14. Where to start reading</h2>
+<ul>
+<li>One function per stage: <code>web.create</code> → <code>Intake.on_mention</code> → <code>Intake._plan</code> → <code>PlanRun.run</code> → <code>issues.open_issue</code> → <code>Dispatcher.tick</code> → <code>runner.job.run_job</code> → <code>WorkRun.run</code> → <code>coders.ExternalCoder.run</code> / <code>Session.run</code> → <code>prs.open_pr</code> → <code>Intake.on_job_done</code>.</li>
+<li>The tests read like a script of the same flow. <code>tests/test_intake.py::test_chat_then_confirm_plans_answers_about_the_plan_and_approves_by_text</code>, <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/tests/test_runner.py'><code>tests/test_runner.py</code></a> and <a href='https://github.com/Mystery01092000/pullwright/blob/main/server/tests/test_coders.py'><code>tests/test_coders.py</code></a> exercise each stage with fakes for GitHub and the model.</li>
+</ul><footer>Generated from code-walkthrough.md. Source: <a href='https://github.com/Mystery01092000/pullwright'>github.com/Mystery01092000/pullwright</a></footer></main></body></html>

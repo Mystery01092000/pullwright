@@ -28,6 +28,7 @@ There are two layers:
 |---|---|---|
 | `PULLWRIGHT_REPOS` | (none) | Comma-separated `owner/name`. The dispatcher watches these, tasks for other repositories are refused, and the knowledge base profiles these to pick a repository when a task names none. If it's empty, the dispatcher does not run. |
 | `PULLWRIGHT_MAX_PARALLEL` | `1` | How many issues are implemented at once. |
+| `PULLWRIGHT_GITHUB_SYNC_SECONDS` | `30` | How often comments and reviews on open Pullwright PRs are copied into the request's chat thread. |
 | `PULLWRIGHT_POLL_SECONDS` | `30` | How often the dispatcher looks for queued issues and PR feedback. |
 | `PULLWRIGHT_FEEDBACK_QUIET_SECONDS` | `120` | After the newest review comment on a Pullwright PR, how long to wait before a follow-up starts (lets a reviewer finish). |
 | `PULLWRIGHT_FEEDBACK_TRIGGER` | `any` | `any`: every comment from someone with write access is feedback; `mention`: only comments that mention `@pullwright`. A comment starting with `@pullwright ignore` never counts. |
@@ -36,7 +37,7 @@ There are two layers:
 | `PULLWRIGHT_RUNNER_IMAGE` | `ghcr.io/mystery01092000/pullwright-runner:latest` | The image for Docker runners ([runners](runners.md)). |
 | `PULLWRIGHT_RUNNER_CACHE` | `pullwright-cache` | A named Docker volume mounted at `/home/runner/.cache`, so jobs reuse npm, uv, pip and Go downloads. Empty turns it off ([runners](runners.md#warm-caches)). |
 | `PULLWRIGHT_MAX_ROUNDS` | `2` | Coder → checks rounds per issue: the first checks, one fix round, then a draft PR for a human. |
-| `PULLWRIGHT_CODER` | `native` | Who does the runner's agent steps: `native`, `claude-code` or `goose` ([coders](coders.md)). |
+| `PULLWRIGHT_CODER` | `goose` | Who does the runner's agent steps: `goose`, `claude-code` or `native` ([coders](coders.md)). |
 | `PULLWRIGHT_CODER_BY_REPO` | unset | JSON `{"owner/name": "goose"}`: the coder per repository. |
 | `PULLWRIGHT_CODER_MODEL` / `PULLWRIGHT_CODER_MAX_TURNS` | supervisor's model / `120` | The external coder's model and turn limit per step. |
 

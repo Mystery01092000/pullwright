@@ -76,7 +76,7 @@ The control plane needs access to a Docker daemon: run it on the host, or in a c
 
 ## The local runner
 
-`PULLWRIGHT_RUNNER=local` runs `python -m pullwright.runner.job` as a subprocess. The agents' commands run on the control plane's machine with its user's rights. Use it only to work on Pullwright itself.
+`PULLWRIGHT_RUNNER=local` runs `python -m pullwright.runner.job` as a subprocess. The default coder, goose, must then be installed on the machine, or set `PULLWRIGHT_CODER=native`. The agents' commands run on the control plane's machine with its user's rights. Use it only to work on Pullwright itself.
 
 ## EC2 (planned)
 

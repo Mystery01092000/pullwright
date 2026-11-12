@@ -62,6 +62,12 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
   - the Go image's caches were under /root;
   - a cached GitHub token expired before fincalc#1's push. Jobs now get a fresh token and refresh it before pushing (`/llm/github-token`), and agents' commands no longer inherit the runner's GitHub token.
 
+### The PR and the chat in sync (2026-11-13)
+
+- **GitHub → chat:** a review comment on fincalc-goose#2 was copied into the web thread on the first sync, as a GitHub card.
+- **Chat → GitHub:** a change typed in the thread ("show total interest as a percentage of principal") was posted on the PR by the App, with the chat marker. The follow-up loop picked it up as the developer's feedback.
+- **Default coder:** goose (`coders.DEFAULT_CODER`).
+
 ### Coder comparison (2026-11-13, same plan, both through the LLM proxy)
 
 | Task | Coder | Rounds | Runner time | Cost (plan + runner, proxy count) | Result |

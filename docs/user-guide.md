@@ -146,6 +146,13 @@ When a runner starts, the **runner panel** shows live:
 
 When it finishes, a PR opens: ready for review if the checks passed, a draft that says why if they didn't. Its link appears in the thread. The PR body has a cost table per stage and model, and every run posts a work-log comment on the PR.
 
+### The PR and the chat stay in sync
+
+Once the PR is open, the request's chat thread and the PR's conversation mirror each other:
+
+- **GitHub → chat.** Comments, inline review comments and reviews (approved / changes requested) on the PR appear in the thread as GitHub cards, with the author, the file and line for inline comments, and a link back. They're copied about every 30 seconds (`PULLWRIGHT_GITHUB_SYNC_SECONDS`). Pullwright's own bot comments aren't copied; the thread already has their summary.
+- **Chat → GitHub.** A message in the thread while the PR is open is read by the responder. A question is answered in the chat. A change request is posted on the PR as your review comment: your words, signed "via the Pullwright chat", with Pullwright's fuller reading folded underneath. The PR follow-up loop then updates the same PR. Only people with write access to the repository can send changes this way. Merging and closing stay on GitHub.
+
 ### Ask for changes on the PR
 
 Leave review comments on the PR, as you would for a colleague. After a quiet period (120 seconds by default) a follow-up run starts on the same branch, with the plan, earlier work logs and your comments as its brief. It replies to each inline comment and posts the next work log. The runner panel shows it as a "Review follow-up". Only comments from people with write access count. To make Pullwright react only when mentioned, set `PULLWRIGHT_FEEDBACK_TRIGGER=mention`.

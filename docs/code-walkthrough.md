@@ -1,5 +1,7 @@
 # Code walkthrough: from login to pull request
 
+> A formatted version of this page: [code-walkthrough.html](code-walkthrough.html) (rebuild it with `uv run --no-project --with markdown python scripts/build_walkthrough_html.py`).
+
 This follows one request through the code: logging in, sending a message, planning, approval, the queue, the runner, the coder, the checks, and the pull request. Paths are relative to the repository root; `server/pullwright/...` is the Python package, `web/src/...` the React UI. Line numbers are as of 2026-11-13.
 
 ## The pieces
@@ -20,7 +22,7 @@ flowchart LR
     subgraph Runner[Runner: one container per issue]
         JOB[runner/job.py]
         WORK[pipeline/work.py]
-        CODER[coders.py<br/>native / Claude Code / goose]
+        CODER[coders.py<br/>goose / Claude Code / native]
         CHECKS[checks.py]
     end
     GH[(GitHub<br/>issues, labels, PRs)]
@@ -158,16 +160,16 @@ Every reply goes through `_reply()`. That posts it on the channel and also recor
 
 ## 5. Planning (`pipeline/plan.py`)
 
-`_plan()` (`intake.py:~409`):
+`_plan()` (`intake.py:490`):
 
 1. **Clone:** refresh a read-only clone of the repository (`_repo_clone`). No code from it is run; `Session(hooks=False)`.
 2. **Session** (`session.py:32`): the planning budget (`PULLWRIGHT_PLAN_MAX_COST_USD`, default $1). Its event bus writes to the store (`store.append`), so the UI can show "describer is reading the repository".
 3. **`PlanRun.run()`** (`plan.py:142`):
    - `describe()`: the describer (Sonnet, read-only tools `read_file`, `glob`, `grep`) writes the plan as JSON (`PLAN_SCHEMA`): title, a short summary, relevant files, steps, acceptance criteria, test plan, risks, questions;
    - `verify()`: the verifier checks the plan against the code (`VERIFY_SCHEMA`: approved, corrections, evidence). If it objects, the describer gets one more pass with the corrections;
-   - `reviewer.review_plan()`: `_ChannelReviewer` (`intake.py:485`) posts the plan card (`channel.show_plan`), sets the request to `awaiting_approval`, and **blocks** that planning thread until a decision arrives in a queue (`_PendingReview`), or a week passes;
+   - `reviewer.review_plan()`: `_ChannelReviewer` (`intake.py:566`) posts the plan card (`channel.show_plan`), sets the request to `awaiting_approval`, and **blocks** that planning thread until a decision arrives in a queue (`_PendingReview`), or a week passes;
    - on **revise**, the loop runs again with the feedback (at most 3 revisions); on **cancel** it raises `PlanCancelled`.
-4. **Approve:** `on_decision()` (`intake.py:244`) checks that the approver has write access (`gh.can_write`) before the decision is accepted. Then `issues.open_issue()` (`github/issues.py:99`) creates the issue:
+4. **Approve:** `on_decision()` (`intake.py:248`) checks that the approver has write access (`gh.can_write`) before the decision is accepted. Then `issues.open_issue()` (`github/issues.py:99`) creates the issue:
    - a readable body: requester, approver, request and plan;
    - a hidden `<!-- pullwright:{...} -->` block with the task, the structured plan, the requester and the thread address. This is what the runner reads later;
    - labels `pullwright` and `pullwright:queued`.
@@ -193,6 +195,13 @@ Each agent call goes through `Session.run()`, then `agent.run_agent()` (`agent.p
   - `steps()` turns them into the lifecycle (Plan, Approve, Queue, Runner, Pull request);
   - `RunnerPanel` shows the run's state, check results, agents and recent tool calls.
 - **Layout:** in landscape at 1024 px or wider, the lifecycle sits in a column on the right; otherwise above the chat.
+
+### The PR in the chat, and the chat on the PR
+
+Once a request has an open PR:
+
+- **GitHub → chat:** a thread started by `serve.build` runs `intake.sync_github()` every `PULLWRIGHT_GITHUB_SYNC_SECONDS`. For each `pr_open` / `pr_draft` request it reads `feedback.conversation()` (comments, inline comments, reviews; no bots, no chat echoes), skips what `store.synced()` already has, and posts the rest. The web UI gets `github` messages, rendered as cards by `GitHubComment` in `web/src/Requests.tsx`; Slack and Teams get a short reply.
+- **Chat → GitHub:** `on_mention` sends a message in a thread whose PR is open to `_converse_pr()`. The responder answers a question in the chat. A change is checked for write access, then posted with `gh.comment()` as `feedback.chat_comment()`: the developer's words, a signature, the folded reading and the hidden marker. The PR follow-up loop (section 8) picks it up like any review comment. The dispatcher passes the App's bot login so the collector trusts only that account's markers.
 
 ## 7. The dispatcher (`dispatcher.py`)
 
@@ -262,11 +271,11 @@ The session's budget is checked on every model call: over the cap, `BudgetExceed
 
 ## 10. The coder (`coders.py`)
 
-`supervise()` hands the agent step to the coder chosen for the repository (`PULLWRIGHT_CODER`, `PULLWRIGHT_CODER_BY_REPO`).
+`supervise()` hands the agent step to the coder chosen for the repository (`PULLWRIGHT_CODER`, `PULLWRIGHT_CODER_BY_REPO`). **goose is the default** (`coders.DEFAULT_CODER`); see [coders](coders.md) for how the three compared.
 
 **`native`.** A Sonnet supervisor (`defaults/agents/supervisor.md`) with a `spawn_worker` tool (`session.py:144`). Each worker is a Haiku agent with a fresh context and the file and bash tools. It does one piece of the plan and reports back. Specialists from the org config are available as `spawn_specialist`.
 
-**`claude-code` / `goose`.** `_external()` (`work.py`) calls `ExternalCoder.run()` (`coders.py:269`):
+**`claude-code` / `goose`.** `_external()` (`work.py`) calls `ExternalCoder.run()` (`coders.py:272`):
 
 1. **Its own `HOME`:**
    - the org's and repository's skills copied to `~/.claude/skills` and `~/.agents/skills`;
