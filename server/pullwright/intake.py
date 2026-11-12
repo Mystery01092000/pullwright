@@ -195,7 +195,9 @@ class Intake:
             cwd = self._repo_clone(req.repo)
             session = Session(cwd=cwd, client=self.client_factory(), run_id=f"req-{rid}", max_cost_usd=self.plan_cost_usd)
             session.bus.subscribe(self.store.append)
-            run = PlanRun(session, req, _ChannelReviewer(self, rid, ch, thread))
+            reviewer = _ChannelReviewer(self, rid, ch, thread)
+            reviewer.cost = lambda: session.cost_usd
+            run = PlanRun(session, req, reviewer)
             plan = run.run()
             issue = issues.open_issue(self.gh, plan)
             self.store.update_request(rid, state="queued", plan=plan.spec, issue_number=issue["number"], issue_url=issue["html_url"])
@@ -212,11 +214,15 @@ class Intake:
             self._pending.pop(rid, None)
 
     def on_job_event(self, repo: str, number: int, event: dict[str, Any]) -> None:
-        """A runner event: the first sign of life moves the request from queued to working."""
-        if event.get("type") != "state" or (event.get("payload") or {}).get("state") not in ("setup", "working"):
+        """A runner event: link its run to the request (feedback jobs are keyed by their PR), and the first sign of life
+        moves the request from queued to working."""
+        req = self.store.request_for_issue(repo, number) or self.store.request_for_pr(repo, number)
+        if req is None:
             return
-        req = self.store.request_for_issue(repo, number)
-        if req is not None and req["state"] == "queued":
+        run_id = event.get("run_id")
+        if run_id and run_id not in req["runs"]:
+            self.store.link_run(req["id"], run_id)
+        if event.get("type") == "state" and (event.get("payload") or {}).get("state") in ("setup", "working") and req["state"] == "queued":
             self.store.update_request(req["id"], state="working")
 
     def on_job_done(self, repo: str, number: int, result: dict[str, Any] | None, spend: dict[str, Any] | None = None) -> None:
@@ -263,11 +269,12 @@ class _ChannelReviewer:
 
     def __init__(self, intake: Intake, rid: str, channel: Channel, thread: dict[str, Any]) -> None:
         self.intake, self.rid, self.channel, self.thread = intake, rid, channel, thread
+        self.cost: Callable[[], float] = lambda: 0.0  # the planning session's spend so far
 
     def review_plan(self, request: PlanRequest, spec: dict[str, Any], verification: dict[str, Any], revision: int) -> Review:
         self.intake.store.update_request(self.rid, state="awaiting_approval", plan=spec)
         card = PlanCard(self.rid, request.repo, request.task, render_markdown(spec, verification), revision,
-                        self.intake.store.request(self.rid)["cost_usd"], spec.get("questions", []))
+                        self.cost(), spec.get("questions", []), spec=spec, verification=verification)
         self.channel.show_plan(self.thread, card)
         try:
             d = self.intake._pending[self.rid].answers.get(timeout=APPROVAL_TIMEOUT_S)

@@ -45,6 +45,8 @@ class PlanCard:
     revision: int
     cost_usd: float
     questions: list[str] = field(default_factory=list)
+    spec: dict[str, Any] | None = None  # the structured plan (PLAN_SCHEMA), for channels that render it richly
+    verification: dict[str, Any] | None = None  # the verifier's verdict on this revision
 
 
 class Channel(Protocol):

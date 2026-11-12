@@ -48,8 +48,11 @@ class Store:
             if "thread_id" not in [r[1] for r in self.db.execute("PRAGMA table_info(runs)")]:
                 self.db.execute("ALTER TABLE runs ADD COLUMN thread_id TEXT")
             self.db.execute("UPDATE runs SET thread_id = id WHERE thread_id IS NULL")
-            if "costs" not in [r[1] for r in self.db.execute("PRAGMA table_info(requests)")]:
+            cols = [r[1] for r in self.db.execute("PRAGMA table_info(requests)")]
+            if "costs" not in cols:
                 self.db.execute("ALTER TABLE requests ADD COLUMN costs TEXT DEFAULT ''")
+            if "runs" not in cols:
+                self.db.execute("ALTER TABLE requests ADD COLUMN runs TEXT DEFAULT ''")
             self.db.commit()
 
     def create_run(self, run_id: str, task: str, cwd: str, thread_id: str | None = None) -> None:
@@ -138,7 +141,52 @@ class Store:
         d["thread_ref"] = json.loads(d["thread_ref"] or "{}")
         d["plan"] = json.loads(d["plan"]) if d["plan"] else None
         d["costs"] = json.loads(d["costs"]) if d.get("costs") else None
+        d["runs"] = json.loads(d["runs"]) if d.get("runs") else []
         return d
+
+    def request_for_pr(self, repo: str, pr: int) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.db.execute("SELECT * FROM requests WHERE repo = ? AND pr_url LIKE ?", (repo, f"%/pull/{pr}")).fetchone()
+        return self._request_row(row)
+
+    def link_run(self, rid: str, run_id: str) -> None:
+        """Remember that a runner run (its events' run_id) belongs to this request."""
+        with self.lock:
+            row = self.db.execute("SELECT runs FROM requests WHERE id = ?", (rid,)).fetchone()
+            if row is None:
+                return
+            runs = json.loads(row["runs"]) if row["runs"] else []
+            if run_id not in runs:
+                self.db.execute("UPDATE requests SET runs = ? WHERE id = ?", (json.dumps([*runs, run_id]), rid))
+                self.db.commit()
+
+    ACTIVITY_TYPES = ("state", "checks", "agent_start", "agent_end", "tool_call", "error", "usage")
+
+    def activity(self, rid: str, after: int = 0, limit: int = 400) -> list[dict[str, Any]]:
+        """A request's progress: planning (run `req-<id>`) and every runner run linked to it, oldest first, with tool
+        inputs cut down to a one-line summary."""
+        req = self.request(rid)
+        if req is None:
+            return []
+        run_ids = [f"req-{rid}", *req["runs"]]
+        q = (f"SELECT * FROM events WHERE run_id IN ({','.join('?' * len(run_ids))}) AND id > ?"
+             f" AND type IN ({','.join('?' * len(self.ACTIVITY_TYPES))}) ORDER BY id LIMIT ?")
+        with self.lock:
+            rows = self.db.execute(q, (*run_ids, after, *self.ACTIVITY_TYPES, limit)).fetchall()
+        out = []
+        for r in rows:
+            p = json.loads(r["payload"])
+            if r["type"] == "tool_call":
+                inp = p.get("input") or {}
+                hint = next((str(inp[k]) for k in ("path", "command", "pattern", "task", "name") if k in inp), "")
+                p = {"name": p.get("name"), "hint": hint[:160]}
+            elif r["type"] == "agent_start":
+                p = {"name": p.get("name"), "model": p.get("model")}
+            elif r["type"] == "checks":
+                p = {"green": p.get("green"), "results": [{k: c.get(k) for k in ("name", "ok", "seconds", "command")} for c in p.get("results", [])]}
+            out.append({"id": r["id"], "run_id": r["run_id"], "agent_id": r["agent_id"], "parent_id": r["parent_id"],
+                        "type": r["type"], "ts": r["ts"], "payload": p})
+        return out
 
     def add_request_costs(self, rid: str, breakdown: dict[str, Any] | None, run: dict[str, Any] | None = None) -> None:
         """Add one stage's or job's breakdown to a request; `run` ({kind, status, cost_usd, proxy_usd?}) joins its run list.

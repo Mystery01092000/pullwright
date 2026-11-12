@@ -13,9 +13,9 @@ export function Md({ text }: { text: string }) {
   return <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-export function Btn({ children, onClick, secondary }: { children: React.ReactNode; onClick: () => void; secondary?: boolean }) {
+export function Btn({ children, onClick, secondary, disabled }: { children: React.ReactNode; onClick: () => void; secondary?: boolean; disabled?: boolean }) {
   return (
-    <button className={`${secondary ? 'pill' : 'solid'} r-sm h-9 px-4 text-sm font-medium transition`} onClick={onClick}>
+    <button className={`${secondary ? 'pill' : 'solid'} r-sm h-9 px-4 text-sm font-medium transition`} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   )
@@ -68,7 +68,7 @@ export function Chat({ runs, onSubmit }: { runs: RunRow[]; onSubmit: (text: stri
         )}
         {tab === 'chat' && finished && <NewTaskComposer placeholder="Continue this thread: ask for a follow-up, a fix, or to resume where it stopped…" onSubmit={(t, k, m) => onSubmit(t, k, m, last.id)} />}
         {tab === 'chat' && revising && (
-          <PromptComposer
+          <div className="dark-island"><PromptComposer
             prompts={[]}
             placeholder="Describe what to change in the plan, then press Enter…"
             platforms={[{ label: 'Revise plan', icon: 'chat' }]}
@@ -76,7 +76,7 @@ export function Chat({ runs, onSubmit }: { runs: RunRow[]; onSubmit: (text: stri
             simulate={false}
             hint={false}
             onSubmit={(s) => api.decide(last.id, false, s.prompt)}
-          />
+          /></div>
         )}
         <CostStrip views={all} />
       </div>
@@ -113,7 +113,7 @@ const EXAMPLES = [
 
 export function NewTaskComposer({ onSubmit, placeholder }: { onSubmit: (text: string, kind: string, model: string) => void; placeholder?: string }) {
   return (
-    <PromptComposer
+    <div className="dark-island"><PromptComposer
       prompts={EXAMPLES}
       placeholder={placeholder ?? 'Describe the task. Pullwright proposes a plan before touching code.'}
       platforms={KINDS}
@@ -122,7 +122,7 @@ export function NewTaskComposer({ onSubmit, placeholder }: { onSubmit: (text: st
       simulate={false}
       hint
       onSubmit={(s) => onSubmit(s.prompt, s.platform, MODEL_IDS[s.model] ?? 'claude-opus-5-5')}
-    />
+    /></div>
   )
 }
 

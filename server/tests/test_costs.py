@@ -64,3 +64,28 @@ def test_cost_view_endpoint():
     assert abs(d["total_usd"] - 0.7) < 1e-9 and d["requests"] == 2
     assert d["by_repo"]["o/app"]["cost_usd"] == 0.5 and d["by_requester"]["vik"]["requests"] == 1
     assert d["top"][0]["id"] == "r1" and d["by_stage"]["work"]["calls"] == 3 and len(d["by_day"]) == 1
+
+
+def test_request_activity_links_runner_runs_and_trims_payloads():
+    from pullwright.events import Event as Ev
+
+    c, _, store, signer = _client()
+    store.create_request("r1", "web", "o/app", "add hello", "asha", "Asha", {"thread": "t1"})
+    store.update_request("r1", issue_number=7, pr_url="https://github.com/o/app/pull/9", state="queued")
+    store.append(Ev("state", "req-r1", "run", {"state": "describing"}))
+    store.append(Ev("state", "app-7", "run", {"state": "setup"}))
+    store.append(Ev("tool_call", "app-7", "worker1-a", {"name": "bash", "input": {"command": "pytest -q " + "x" * 400}}))
+    store.append(Ev("text", "app-7", "worker1-a", {"delta": "chatty"}))
+    store.append(Ev("state", "app-pr9-2", "run", {"state": "working"}))
+
+    from pullwright.intake import Intake
+
+    for rid_run, number in (("app-7", 7), ("app-pr9-2", 9)):
+        Intake.on_job_event(type("S", (), {"store": store})(), "o/app", number, {"type": "state", "run_id": rid_run, "payload": {"state": "setup"}})
+    assert store.request("r1")["runs"] == ["app-7", "app-pr9-2"] and store.request("r1")["state"] == "working"
+    c.cookies.set(COOKIE, signer.dumps({"login": "asha", "name": "Asha Rao"}, 3600))
+    ev = c.get("/api/requests/r1/activity").json()["events"]
+    assert [e["type"] for e in ev] == ["state", "state", "tool_call", "state"]  # text deltas are not activity
+    assert ev[2]["payload"] == {"name": "bash", "hint": ("pytest -q " + "x" * 400)[:160]}
+    assert c.get("/api/requests/r1/activity", params={"after": ev[2]["id"]}).json()["events"][0]["run_id"] == "app-pr9-2"
+    assert c.get("/api/requests/nope/activity").status_code == 404

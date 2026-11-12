@@ -85,9 +85,43 @@ export type RequestRow = {
   error: string
   cost_usd: number
   created_at: number
+  costs?: Costs | null
+  runs?: string[]
 }
 
-export type PlanCardBody = { request_id: string; repo: string; task: string; plan_markdown: string; revision: number; cost_usd: number; questions: string[] }
+export type CostBucket = { cost_usd: number; calls: number; input_tokens: number; output_tokens: number }
+export type Costs = {
+  total_usd: number
+  calls: number
+  by_stage: Partial<Record<'plan' | 'work' | 'review' | 'other', CostBucket>>
+  by_model: Record<string, CostBucket>
+  unpriced: string[]
+  runs?: Array<{ kind: string; status: string; cost_usd: number; proxy_usd?: number; at: number }>
+}
+export type CostSummary = Costs & {
+  days: number
+  requests: number
+  by_repo: Record<string, { cost_usd: number; requests: number }>
+  by_requester: Record<string, { cost_usd: number; requests: number }>
+  by_day: Array<{ day: string; cost_usd: number }>
+  top: Array<{ id: string; repo: string; task: string; state: string; pr_url: string; issue_url: string; cost_usd: number; by_stage: Costs['by_stage'] }>
+}
+export type PlanSpec = {
+  title: string
+  summary: string
+  relevant_files: Array<{ path: string; why: string }>
+  plan: string[]
+  acceptance_criteria: string[]
+  test_plan: string[]
+  risks: string[]
+  questions: string[]
+}
+export type Activity = { id: number; run_id: string; agent_id: string; parent_id: string | null; type: string; ts: number; payload: Record<string, any> }
+
+export type PlanCardBody = {
+  request_id: string; repo: string; task: string; plan_markdown: string; revision: number; cost_usd: number; questions: string[]
+  spec?: PlanSpec | null; verification?: { approved: boolean; corrections: string[]; evidence: string } | null
+}
 export type ThreadMessage = { id: number; kind: 'user' | 'reply' | 'plan'; body: any; ts: number }
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -106,5 +140,7 @@ export const team = {
     j<{ message: string }>(fetch(`${BASE}/requests/${id}/decision`, json({ decision, feedback }))),
   queue: () => j<RequestRow[]>(fetch(`${BASE}/queue`)),
   repos: () => j<RepoInfo[]>(fetch(`${BASE}/repos`)),
+  activity: (rid: string, after = 0) => j<{ request: RequestRow; events: Activity[] }>(fetch(`${BASE}/requests/${rid}/activity?after=${after}`)),
+  costs: (days = 30) => j<CostSummary>(fetch(`${BASE}/costs?days=${days}`)),
 }
 

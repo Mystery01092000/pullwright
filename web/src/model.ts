@@ -91,5 +91,5 @@ export function reduce(v: View, e: Ev): View {
   return n
 }
 
-export const usd = (x: number) => `$${x.toFixed(x < 0.1 ? 4 : 3)}`
+export const usd = (x: number) => (x === 0 ? '$0' : `$${x.toFixed(x < 0.1 ? 4 : 3)}`)
 export const k = (x: number) => (x >= 1000 ? `${(x / 1000).toFixed(1)}k` : String(x))

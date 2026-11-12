@@ -189,6 +189,15 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         me(request)
         return [x for x in store.requests(None, 500) if x["state"] in ("queued", "working", "pr_open", "pr_draft", "failed")]
 
+    @r.get("/requests/{rid}/activity")
+    def request_activity(rid: str, request: Request, after: int = 0) -> dict[str, Any]:
+        """Planning and runner progress for one request: states, check results, agents, tool calls, usage."""
+        me(request)
+        req = store.request(rid)
+        if req is None:
+            raise HTTPException(404, "no such request")
+        return {"request": req, "events": store.activity(rid, after)}
+
     @r.get("/costs")
     def cost_summary(request: Request, days: int = 30) -> dict[str, Any]:
         """Spend over the last `days` days: per stage, model, repository, requester and day, and the costliest requests."""
