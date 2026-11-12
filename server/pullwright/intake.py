@@ -80,7 +80,7 @@ class _PendingReview:
 class Intake:
     store: Store
     gh: GitHub
-    client_factory: Callable[[], Any]  # -> anthropic.Anthropic()
+    client_factory: Callable[[], Any]  # -> providers.Router()
     workdir: Path  # cached read-only clones for planning
     channels: dict[str, Channel] = field(default_factory=dict)
     link_url: Callable[[str], str] = lambda token: f"/link?token={token}"

@@ -22,15 +22,16 @@ The job reads everything else from the issue and the environment. It writes `PWE
 docker run --rm --name pullwright-<owner>-<repo>-<n> --init \
   --user 1000:1000 --cpus 2 --memory 6g --pids-limit 2048 \
   --security-opt no-new-privileges --network bridge \
-  -e PULLWRIGHT_GITHUB_TOKEN -e ANTHROPIC_API_KEY -e PULLWRIGHT_MAX_COST_USD -e PULLWRIGHT_MAX_ROUNDS \
+  -e PULLWRIGHT_GITHUB_TOKEN -e PULLWRIGHT_LLM_PROXY -e PULLWRIGHT_LLM_TOKEN -e PULLWRIGHT_MAX_COST_USD -e PULLWRIGHT_MAX_ROUNDS \
   <image> timeout 90m pullwright-work owner/repo#n
 ```
 
 - **Non-root, resource-limited, no host mounts,** and removed when it exits.
 - **Secrets are passed by name** (`-e NAME`, with the value in the docker client's environment), so they don't appear on a command line or in process listings.
+- **No provider key with the [LLM proxy](providers.md#the-llm-proxy-no-provider-key-in-a-runner):** the runner gets a job token, and every model call goes through the control plane, which enforces the job's dollar cap. Without the proxy, the configured providers' keys are passed by name instead.
 - **The GitHub token** is an installation token for that one repository that expires within an hour. The clone's saved remote has the token removed, and `git push` uses it once by URL.
 - **Agents can't push or call `gh`.** The pipeline pushes the branch and opens the PR itself. The repository's own deny list still applies.
-- **Network access** is on, because dependency installs need it. To restrict egress, run the container on a Docker network that allows only your package mirrors, the Anthropic API and GitHub.
+- **Network access** is on, because dependency installs need it. To restrict egress, run the container on a Docker network that allows only your package mirrors, GitHub and either the control plane (with the proxy) or your model providers (without it).
 
 ### Build the image
 

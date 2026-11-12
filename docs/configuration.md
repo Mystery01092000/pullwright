@@ -10,7 +10,7 @@ There are two layers:
 
 | Variable | Purpose |
 |---|---|
-| `ANTHROPIC_API_KEY` | Model access for the control plane (planning) and, passed through, for runners. |
+| `ANTHROPIC_API_KEY` | Model access for the control plane (planning) and, passed through, for runners. Other providers' keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, ...) work the same way; see [providers](providers.md). |
 | `PULLWRIGHT_SECRET` | Any long random string. It signs web session cookies and account-link tokens. Changing it logs everyone out and invalidates outstanding links. |
 | `PULLWRIGHT_PUBLIC_URL` | The URL people reach the control plane at, e.g. `https://pullwright.arcane.tech`. It is used for OAuth callbacks and link URLs. Default `http://localhost:8765`. |
 | `GITHUB_APP_ID` + `GITHUB_APP_PRIVATE_KEY_FILE` (or `GITHUB_APP_PRIVATE_KEY`) | The GitHub App ([setup](setup-github-app.md)). |
@@ -34,6 +34,17 @@ There are two layers:
 | `PULLWRIGHT_DISPATCHER` | `on` | Set to `off` to run a planning-only control plane. |
 | `PULLWRIGHT_RUNNER` | `docker` | `docker` (a container per issue) or `local` (a subprocess on this machine with **no isolation**; for development). |
 | `PULLWRIGHT_RUNNER_IMAGE` | `ghcr.io/mystery01092000/pullwright-runner:latest` | The image for Docker runners ([runners](runners.md)). |
+
+### Models, providers and the LLM proxy ([details](providers.md))
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PULLWRIGHT_MAIN_MODEL` | `claude-sonnet-5-5` | Model for the main roles. Takes `provider:model`, such as `openai:<model>`. |
+| `PULLWRIGHT_WORKER_MODEL` | `claude-haiku-5-5` | Model for workers. |
+| `PULLWRIGHT_MODEL_<ROLE>` | unset | Model for one role, for example `PULLWRIGHT_MODEL_VERIFIER`. |
+| `PULLWRIGHT_PROVIDERS` | unset | JSON, inline or as a file, that defines or tunes providers. |
+| `PULLWRIGHT_PRICES` | unset | JSON, inline or as a file, with prices for models outside Anthropic. |
+| `PULLWRIGHT_LLM_PROXY_URL` | unset | Set it to route runners through the control plane's LLM proxy, so no provider key enters a runner. |
 
 ### Cost and effort caps
 

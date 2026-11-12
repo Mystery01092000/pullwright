@@ -15,7 +15,7 @@ from typing import Any
 from .agent import AgentDef, RunResult, run_agent
 from .config import HarnessConfig, load_config
 from .events import Event, EventBus
-from .models import MAIN_MODEL, WORKER_MODEL
+from .models import MAIN_MODEL, WORKER_MODEL, role_model
 from .tools import TOOLS, ToolContext, ToolError
 
 
@@ -120,7 +120,7 @@ class Session:
         return AgentDef(
             name=name or role,
             system=self.cfg.system_prompt(role),
-            model=spec.model or (self.worker_model if role == "worker" else self.main_model),
+            model=spec.model or role_model(role) or (self.worker_model if role == "worker" else self.main_model),
             effort=spec.effort or "high",
             tools=tools,
             max_turns=spec.max_turns or 50,

@@ -119,15 +119,15 @@ app = FastAPI(title="pullwright", lifespan=_lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.state.store = Store(os.environ.get("PULLWRIGHT_DB") or os.environ.get("HARNESS_DB", "pullwright.db"))
 app.state.live: dict[str, LiveRun] = {}
-app.state.client_factory = None  # tests inject a fake; None -> anthropic.Anthropic()
+app.state.client_factory = None  # tests inject a fake; None -> providers.Router()
 
 
 def _client() -> Any:
     if app.state.client_factory:
         return app.state.client_factory()
-    import anthropic
+    from .providers import Router
 
-    return anthropic.Anthropic()
+    return Router()
 
 
 def _serialize(ev: Event, row_id: int) -> dict[str, Any]:

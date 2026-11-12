@@ -161,7 +161,7 @@ def _stdout_sink(ev: Event) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    import anthropic
+    from ..providers import Router
 
     argv = sys.argv[1:] if argv is None else argv
     pr_mode = bool(argv) and argv[0] == "--pr"
@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="pullwright-") as tmp:
         caps = {"max_cost_usd": float(os.environ.get("PULLWRIGHT_MAX_COST_USD", "5")),
                 "max_rounds": int(os.environ.get("PULLWRIGHT_MAX_ROUNDS", "4"))}
-        gh, client = GitHub(PatAuth(token)), anthropic.Anthropic()
+        gh, client = GitHub(PatAuth(token)), Router()
         if pr_mode:
             mention_only = os.environ.get("PULLWRIGHT_FEEDBACK_TRIGGER", "any") == "mention"
             res = run_feedback(repo, number, gh, client, Path(tmp), bus=bus, mention_only=mention_only, **caps)

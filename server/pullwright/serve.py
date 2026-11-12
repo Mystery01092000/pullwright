@@ -64,24 +64,24 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
         /api/*              the JSON API: local runs, team requests, queue, the Teams webhook
         /                   the built web UI (web/dist), when present
     """
-    import anthropic
     from fastapi import FastAPI
 
     from .api import app
+    from .providers import Router
 
     secret = secret_from_env()
     store = store or Store(os.environ.get("PULLWRIGHT_DB", "pullwright.db"))
     gh = github_from_env()
     public = os.environ.get("PULLWRIGHT_PUBLIC_URL", "http://localhost:8765").rstrip("/")
     repos = [r.strip() for r in os.environ.get("PULLWRIGHT_REPOS", "").split(",") if r.strip()]
-    intake = Intake(store, gh, anthropic.Anthropic, Path(os.environ.get("PULLWRIGHT_WORKDIR", ".pullwright-work")),
+    intake = Intake(store, gh, Router, Path(os.environ.get("PULLWRIGHT_WORKDIR", ".pullwright-work")),
                     link_url=lambda t: f"{public}/link?token={t}", signer=LinkSigner(secret), allowed_repos=set(repos),
                     plan_cost_usd=float(os.environ.get("PULLWRIGHT_PLAN_MAX_COST_USD", "1")))
     parts: dict[str, Any] = {"store": store, "gh": gh, "intake": intake}
     if repos:
         from .knowledge import KnowledgeBase
 
-        intake.knowledge = KnowledgeBase(gh, store, anthropic.Anthropic)
+        intake.knowledge = KnowledgeBase(gh, store, Router)
         threading.Thread(target=intake.knowledge.refresh, args=(repos,), name="knowledge", daemon=True).start()
 
     intake.register(WebChannel(store))
@@ -96,12 +96,20 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
         intake.register(teams)
         parts["teams"] = teams
 
+    ledger = None
+    if os.environ.get("PULLWRIGHT_LLM_PROXY_URL"):
+        from .llm_proxy import Ledger, build_proxy
+
+        ledger = Ledger()
+        parts["ledger"] = ledger
     oauth = (os.environ["GITHUB_OAUTH_CLIENT_ID"], os.environ["GITHUB_OAUTH_CLIENT_SECRET"]) if os.environ.get("GITHUB_OAUTH_CLIENT_ID") else None
     auth_routes, api_routes = build_router(intake, store, Signer(secret), teams, oauth, public)
     app.include_router(api_routes)
     root = FastAPI(title="pullwright")
     root.include_router(auth_routes)
     root.mount("/api", app)
+    if ledger is not None:
+        root.include_router(build_proxy(ledger))
     dist = Path(os.environ.get("PULLWRIGHT_WEB_DIST", Path(__file__).resolve().parents[2] / "web" / "dist"))
     if (dist / "index.html").is_file():
         from fastapi.staticfiles import StaticFiles
@@ -121,7 +129,7 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
                                ev.get("payload") or {}, ev.get("parent_id"), ev.get("turn")))
             intake.on_job_event(job.repo, job.issue, ev)
 
-        dispatcher = Dispatcher(gh, runner_from_env(), repos, on_event=on_event, on_done=done)
+        dispatcher = Dispatcher(gh, runner_from_env(), repos, on_event=on_event, on_done=done, ledger=ledger)
         t = threading.Thread(target=dispatcher.serve, kwargs={"interval": float(os.environ.get("PULLWRIGHT_POLL_SECONDS", "30"))},
                              name="dispatcher", daemon=True)
         t.start()

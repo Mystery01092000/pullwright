@@ -27,4 +27,4 @@ Every model call records its input, output, cache-write and cache-read tokens an
 
 ## Changing models
 
-Set `model:` in `.pullwright/agents/<role>.md` (one repository) or edit `server/pullwright/defaults/agents/` (all repositories). Before changing a default, measure it: run the [evals](evals.md) with the current and the proposed model and compare pass rate and cost per task. Judge cost per **completed** task, not per request: a cheaper model that needs more rounds can cost more in the end.
+Set `model:` in `.pullwright/agents/<role>.md` (one repository), `PULLWRIGHT_MODEL_<ROLE>` (the deployment) or edit `server/pullwright/defaults/agents/` (all repositories). Any provider works: see [providers](providers.md). Before changing a default, measure it: run the [evals](evals.md) with the current and the proposed model and compare pass rate and cost per task. Judge cost per **completed** task, not per request: a cheaper model that needs more rounds can cost more in the end.

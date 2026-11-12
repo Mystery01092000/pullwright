@@ -50,6 +50,8 @@ class DockerRunner:
                 "--stop-timeout", "30"]
         for n in names:
             argv += ["-e", n]
+        if "host.docker.internal" in job.env.get("PULLWRIGHT_LLM_PROXY", ""):
+            argv += ["--add-host", "host.docker.internal:host-gateway"]  # Linux needs it; Docker Desktop accepts it
         return [*argv, self.image, "timeout", f"{self.timeout_minutes}m", "pullwright-work", *job.args]
 
     def start(self, job: Job) -> DockerHandle:

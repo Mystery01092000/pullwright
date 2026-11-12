@@ -19,7 +19,8 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 
 - [ ] Live verification with a real GitHub App, Slack workspace and Teams tenant (tracked in PROGRESS.md)
 - [ ] **EC2 runner**: an instance per issue from a launch template, spot by default, event callback to the control plane
-- [ ] **LLM proxy in the control plane**, so the Anthropic key never enters a runner and budgets are enforced centrally
+- [x] **LLM proxy in the control plane**, so no provider key enters a runner and budgets are enforced centrally ([providers](providers.md))
+- [x] **Any provider per role**: OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, Ollama and custom OpenAI-compatible servers
 - [ ] **Planning and issue evals** with cost and pass rate per issue; nightly eval workflow
 - [ ] Follow-ups on a PR: `@pullwright` in a PR review comment sends the runner back with the review as the brief
 - [ ] Post a cost breakdown per stage on the PR, and show it in a web cost view

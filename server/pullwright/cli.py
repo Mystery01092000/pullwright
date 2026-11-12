@@ -12,7 +12,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import anthropic
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -26,6 +25,7 @@ from .config import load_config
 from .events import Event, EventBus
 from .lifecycle import Run, thread_context
 from .models import MAIN_MODEL, WORKER_MODEL
+from .providers import Router
 from .tools import ToolContext
 
 console = Console(highlight=False)
@@ -246,12 +246,12 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
 
     cwd = Path(a.cwd).resolve()
-    client = anthropic.Anthropic()
+    client = Router()
     session = Session(cwd, client, a.model, a.worker_model, a.max_cost)
 
     head = Table.grid(padding=(0, 2))
     head.add_row("[grey50]repo[/]", str(cwd) + ("  [grey50](repo config found)[/]" if session.cfg.root else ""))
-    head.add_row("[grey50]models[/]", f"{a.model.removeprefix('claude-')} / workers {a.worker_model.removeprefix('claude-')}")
+    head.add_row("[grey50]models[/]", f"{a.model} / workers {a.worker_model}")
     head.add_row("[grey50]cap[/]", f"${a.max_cost:.2f} per run")
     console.print(Panel(head, title="[bold]pullwright[/]", subtitle="[grey50]/help for commands[/]", border_style="grey42"))
 

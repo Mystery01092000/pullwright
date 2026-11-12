@@ -28,7 +28,7 @@ from typing import Any
 from .agent import AgentDef, run_agent
 from .events import EventBus
 from .github.client import GitHub
-from .models import WORKER_MODEL
+from .models import WORKER_MODEL, role_model
 from .tools import ToolContext
 
 STOP = frozenset("""a an and are as at be by can could do does for from has have how i if in into is it its make me my need
@@ -196,7 +196,7 @@ class KnowledgeBase:
         if self.client_factory is None or not profiles:
             return None
         allowed = [p.repo for p in profiles]
-        agent = AgentDef(name="router", model=WORKER_MODEL, effort="low", tools=[], max_turns=1, max_cost_usd=0.05,
+        agent = AgentDef(name="router", model=role_model("router") or WORKER_MODEL, effort="low", tools=[], max_turns=1, max_cost_usd=0.05,
                          output_schema=ROUTER_SCHEMA,
                          system="Pick the repository a developer's task belongs to. Answer with one repository from the list "
                                 "exactly as written, or an empty string if none clearly fits, and a one-sentence reason.")

@@ -18,7 +18,7 @@ class Job:
     repo: str
     issue: int  # the issue number, or the PR number for a feedback job
     github_token: str  # short-lived, scoped to `repo`
-    env: dict[str, str] = field(default_factory=dict)  # extra environment (ANTHROPIC_API_KEY, caps)
+    env: dict[str, str] = field(default_factory=dict)  # extra environment (caps, models, proxy token or provider keys)
     kind: str = "issue"  # issue | feedback
 
     @property
@@ -59,6 +59,7 @@ class JobOutcome:
     exit_code: int
     result: dict[str, Any] | None  # the PWRESULT payload, if the job got that far
     events: int = 0
+    spend: dict[str, Any] | None = None  # the LLM proxy's record of the job's spend, when runners use the proxy
 
 
 def follow(handle: Handle, on_event: Callable[[dict[str, Any]], None] | None = None, on_log: Callable[[str], None] | None = None) -> JobOutcome:

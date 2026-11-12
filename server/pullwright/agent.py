@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .events import Event, EventBus
-from .models import MAIN_MODEL, supports_fallbacks
-from .pricing import cost_usd
+from .models import MAIN_MODEL
+from .pricing import cost_usd, price
+from .providers import as_router
+from .providers.anthropic import FALLBACK_BETA  # noqa: F401  (re-exported for callers of the old name)
 from .tools import ALL_TOOLS, TOOLS, Registry, ToolContext, execute, schemas
-
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 @dataclass
@@ -38,13 +38,6 @@ class RunResult:
     cost_usd: float
 
 
-def _usage_dict(u: Any) -> dict[str, int]:
-    return {
-        k: int(getattr(u, k, 0) or 0)
-        for k in ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
-    }
-
-
 def run_agent(
     client: Any,
     agent: AgentDef,
@@ -68,48 +61,28 @@ def run_agent(
 
     emit("agent_start", name=agent.name, model=agent.model, effort=agent.effort, tools=agent.tools)
     registry: Registry = {**TOOLS, **agent.extra_tools}
-    output_config: dict[str, Any] = {"effort": agent.effort}
-    # Server-side refusal fallback where the model has one (Claude Haiku 5.5 does not).
-    fallback: dict[str, Any] = {"betas": [FALLBACK_BETA], "fallbacks": "default"} if supports_fallbacks(agent.model) else {}
-    if agent.output_schema:
-        output_config["format"] = {"type": "json_schema", "schema": agent.output_schema}
+    provider, model_id = as_router(client).provider(agent.model)
+    tools = schemas(agent.tools, registry)
 
     for turn in range(1, agent.max_turns + 1):
         if cancel is not None and cancel.is_set():
             stop = "cancelled"
             break
-        with client.beta.messages.stream(
-            model=agent.model,
-            max_tokens=agent.max_tokens,
-            system=[{"type": "text", "text": agent.system, "cache_control": {"type": "ephemeral"}}],
-            cache_control={"type": "ephemeral"},  # also cache the growing conversation tail
-            messages=messages,
-            tools=schemas(agent.tools, registry),
-            thinking={"type": "adaptive", "display": "summarized"},
-            output_config=output_config,
-            **fallback,
-        ) as stream:
-            for ev in stream:
-                if ev.type == "content_block_delta":
-                    if ev.delta.type == "thinking_delta" and ev.delta.thinking:
-                        emit("thinking", turn, delta=ev.delta.thinking)
-                    elif ev.delta.type == "text_delta":
-                        emit("text", turn, delta=ev.delta.text)
-            resp = stream.get_final_message()
+        resp = provider.turn(agent, model_id, messages, tools, lambda t, **p: emit(t, turn, **p))  # noqa: B023
 
         messages.append({"role": "assistant", "content": resp.content})
-        u = _usage_dict(resp.usage)
+        u = resp.usage
         c = cost_usd(resp.model, u)
         cost += c
         for k in total:
             total[k] += u[k]
-        emit("usage", turn, model=resp.model, cost_usd=c, total_cost_usd=cost, **u)
+        emit("usage", turn, model=resp.model, cost_usd=c, total_cost_usd=cost, priced=price(resp.model) is not None, **u)
         text = "".join(b.text for b in resp.content if b.type == "text")
 
         tool_uses = [b for b in resp.content if b.type == "tool_use"]
         if resp.stop_reason == "refusal":
             stop = "refusal"
-            emit("error", turn, reason="refusal", category=getattr(getattr(resp, "stop_details", None), "category", None))
+            emit("error", turn, reason="refusal", category=getattr(resp.stop_details, "category", None))
             break
         if resp.stop_reason == "pause_turn":
             continue

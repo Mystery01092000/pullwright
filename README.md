@@ -26,6 +26,7 @@ Pullwright is an open-source agent harness for engineering teams. It turns a sen
 - **A person approves the plan.** Nothing is built until a developer with write access to the repository clicks Approve. The approved plan becomes a GitHub issue carrying the developer's name, so the work has an owner and a paper trail.
 - **Commands decide when it is done, not a model.** The runner keeps iterating until the project's own checks (tests, lint, type checks, build) exit 0, and an independent reviewer agrees the acceptance criteria are met.
 - **Cheap models do the volume.** Workers run on Claude Haiku 5.5 ($0.10 per million input tokens); a Claude Sonnet 5.5 supervisor splits the work and checks each result. Every agent has a dollar cap, and every call's tokens and cost are recorded.
+- **Any provider, per role.** Each role can run on Anthropic, OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Ollama or any OpenAI-compatible server. An optional LLM proxy keeps every key on the control plane and enforces each job's dollar cap there.
 - **Isolated execution.** Each issue gets a throwaway container with a GitHub token that can touch only that repository and expires within an hour. Agents there cannot push or call `gh`; the pipeline does that itself.
 - **One issue at a time.** Many tasks can come in from chat. They queue as labeled issues and are implemented in approval order (concurrency is configurable).
 
@@ -69,6 +70,7 @@ Open the web UI, log in with GitHub (this needs an OAuth app; see [getting start
 - Setup guides: [GitHub App](docs/setup-github-app.md) · [Slack](docs/setup-slack.md) · [Microsoft Teams](docs/setup-teams.md)
 - [Runners](docs/runners.md): the Docker image, isolation, adding toolchains, the EC2 plan.
 - [Cost](docs/cost.md): where the money goes and the knobs that control it.
+- [Models and providers](docs/providers.md): run any role on Anthropic, OpenAI, Gemini, OpenRouter, Ollama or any OpenAI-compatible server, and keep keys out of runners with the LLM proxy.
 - [Evals](docs/evals.md): measure a prompt or model change instead of guessing.
 - [Local mode](docs/local-mode.md): the single-developer chat UI and CLI that Pullwright grew from.
 - [Roadmap](docs/roadmap.md)
