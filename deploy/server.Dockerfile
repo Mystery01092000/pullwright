@@ -14,7 +14,7 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
 COPY server /opt/pullwright
-RUN uv pip install --system --no-cache /opt/pullwright
+RUN uv pip install --system --no-cache "/opt/pullwright[postgres]"
 COPY --from=web /web/dist /opt/pullwright-web
 ENV PULLWRIGHT_WEB_DIST=/opt/pullwright-web \
     PULLWRIGHT_DB=/data/pullwright.db \

@@ -15,6 +15,9 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+
 [project.scripts]
 pullwright = "pullwright.cli:main"
 pullwright-work = "pullwright.runner.job:main"

@@ -135,20 +135,21 @@ class KnowledgeBase:
         self.gh, self.store, self.client_factory = gh, store, client_factory
         self._lock = threading.Lock()
         with store.lock:
-            store.db.execute("CREATE TABLE IF NOT EXISTS repo_profiles (repo TEXT PRIMARY KEY, profile TEXT, built_at REAL)")
+            store.db.execute("CREATE TABLE IF NOT EXISTS repo_profiles (repo TEXT PRIMARY KEY, profile TEXT, built_at DOUBLE PRECISION)")
             store.db.commit()
 
     # --- profiles -------------------------------------------------------------------------------
 
     def save(self, profile: RepoProfile) -> None:
         with self.store.lock:
-            self.store.db.execute("INSERT OR REPLACE INTO repo_profiles VALUES (?,?,?)", (profile.repo, json.dumps(asdict(profile)), profile.built_at))
+            self.store.db.execute("INSERT INTO repo_profiles VALUES (?,?,?) ON CONFLICT (repo) DO UPDATE SET profile = excluded.profile,"
+                                  " built_at = excluded.built_at", (profile.repo, json.dumps(asdict(profile)), profile.built_at))
             self.store.db.commit()
 
     def get(self, repo: str) -> RepoProfile | None:
         with self.store.lock:
             row = self.store.db.execute("SELECT profile FROM repo_profiles WHERE repo = ?", (repo,)).fetchone()
-        return RepoProfile(**json.loads(row[0])) if row else None
+        return RepoProfile(**json.loads(row["profile"])) if row else None
 
     def refresh(self, repos: list[str], max_age_s: float = MAX_AGE_S) -> list[RepoProfile]:
         """Profiles for `repos`, rebuilding missing or stale ones. A repo GitHub cannot read is skipped."""

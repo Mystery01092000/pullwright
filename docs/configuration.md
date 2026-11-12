@@ -73,9 +73,12 @@ There are two layers:
 
 ### Storage and server
 
+`PULLWRIGHT_DB` is a SQLite file path (the default, `pullwright.db`) or a Postgres URL (`postgresql://user:pass@host:5432/pullwright`). Postgres needs the `postgres` extra (`uv sync --extra postgres`, already in the control-plane image). Tables are created on first start.
+
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `PULLWRIGHT_DB` | `pullwright.db` | SQLite file |
+| `PULLWRIGHT_DB` | `pullwright.db` | SQLite file, or a Postgres URL |
 | `PULLWRIGHT_WORKDIR` | `.pullwright-work` | Cached read-only clones used for planning |
 | `PULLWRIGHT_WEB_DIST` | `web/dist` | The built UI, served at `/` |
 | `PULLWRIGHT_HOST`, `PULLWRIGHT_PORT` | `0.0.0.0`, `8765` | Listen address |

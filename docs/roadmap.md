@@ -25,7 +25,7 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 - [ ] Issue evals and a nightly eval workflow
 - [x] Follow-ups on a PR: review comments from people with write access (or only `@pullwright` mentions) send the runner back to the same branch with the review as the brief, and every run posts a work log on the PR
 - [x] Post a cost breakdown per stage on the PR, and show it in a web cost view
-- [ ] Postgres option for the control plane store
+- [x] Postgres option for the control plane store (`PULLWRIGHT_DB=postgresql://...`)
 - [x] Publish the runner and control-plane images to GHCR (amd64 + arm64) on tagged releases
 - [x] Docker Compose file for the control plane
 

@@ -1,10 +1,13 @@
-"""SQLite event/usage store. One row per Event; cost rollups via json_extract over usage events."""
+"""The control plane's store: runs, events, chat requests, identities. SQLite by default; Postgres when
+PULLWRIGHT_DB is a postgresql:// URL (install the `postgres` extra). One row per Event; cost rollups in Python.
+"""
 from __future__ import annotations
 
 import json
 import sqlite3
 import threading
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -36,19 +39,69 @@ CREATE TABLE IF NOT EXISTS identities (
   PRIMARY KEY (channel, channel_user_id)
 );
 """
+# Postgres: the same tables; REAL there is 4 bytes (it would round timestamps), and ids come from BIGSERIAL.
+PG_SCHEMA = SCHEMA.replace(" REAL", " DOUBLE PRECISION").replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+
+
+class Database:
+    """One connection with the small surface the store and the knowledge base use: execute (with `?` placeholders),
+    commit, columns(table), insert_id(sql) and the dialect name. Callers hold Store.lock around it."""
+
+    def __init__(self, url: str | Path) -> None:
+        url = str(url)
+        self.dialect = "postgres" if url.startswith(("postgres://", "postgresql://")) else "sqlite"
+        if self.dialect == "postgres":
+            try:
+                import psycopg
+                from psycopg.rows import dict_row
+            except ImportError as e:  # pragma: no cover - depends on the install
+                raise RuntimeError("PULLWRIGHT_DB is a Postgres URL: install pullwright with the `postgres` extra (psycopg)") from e
+            # autocommit: every statement stands alone (no idle transactions between polls); Store.lock serializes writers
+            self.conn = psycopg.connect(url, autocommit=True, row_factory=dict_row)
+        else:
+            self.conn = sqlite3.connect(url, check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
+
+    def _sql(self, sql: str) -> str:
+        return sql.replace("?", "%s") if self.dialect == "postgres" else sql
+
+    def execute(self, sql: str, params: Any = ()) -> Any:
+        return self.conn.execute(self._sql(sql), tuple(params))
+
+    def script(self, sql: str) -> None:
+        if self.dialect == "postgres":
+            for stmt in (s.strip() for s in sql.split(";")):
+                if stmt:
+                    self.conn.execute(stmt)
+        else:
+            self.conn.executescript(sql)
+
+    def commit(self) -> None:
+        if self.dialect == "sqlite":
+            self.conn.commit()
+
+    def columns(self, table: str) -> list[str]:
+        if self.dialect == "postgres":
+            return [r["column_name"] for r in self.conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = %s", (table,))]
+        return [r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")]
+
+    def insert_id(self, sql: str, params: Any = ()) -> int:
+        """Run an INSERT and return the new row's id (RETURNING works on SQLite >= 3.35 and Postgres)."""
+        row = self.execute(sql + " RETURNING id", params).fetchone()
+        return int(row["id"] if row is not None else 0)
 
 
 class Store:
     def __init__(self, path: str | Path = ":memory:") -> None:
-        self.db = sqlite3.connect(str(path), check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
+        self.db = Database(path)
         self.lock = threading.Lock()  # ponytail: one connection + lock; move to a pool if writes contend
         with self.lock:
-            self.db.executescript(SCHEMA)
-            if "thread_id" not in [r[1] for r in self.db.execute("PRAGMA table_info(runs)")]:
+            self.db.script(PG_SCHEMA if self.db.dialect == "postgres" else SCHEMA)
+            if "thread_id" not in self.db.columns("runs"):
                 self.db.execute("ALTER TABLE runs ADD COLUMN thread_id TEXT")
             self.db.execute("UPDATE runs SET thread_id = id WHERE thread_id IS NULL")
-            cols = [r[1] for r in self.db.execute("PRAGMA table_info(requests)")]
+            cols = self.db.columns("requests")
             if "costs" not in cols:
                 self.db.execute("ALTER TABLE requests ADD COLUMN costs TEXT DEFAULT ''")
             if "runs" not in cols:
@@ -71,12 +124,12 @@ class Store:
 
     def append(self, ev: Event) -> int:
         with self.lock:
-            cur = self.db.execute(
+            rid = self.db.insert_id(
                 "INSERT INTO events (run_id, agent_id, parent_id, turn, type, payload, ts) VALUES (?,?,?,?,?,?,?)",
                 (ev.run_id, ev.agent_id, ev.parent_id, ev.turn, ev.type, json.dumps(ev.payload, default=str), ev.ts),
             )
             self.db.commit()
-            return int(cur.lastrowid or 0)
+            return rid
 
     def runs(self, thread_id: str | None = None) -> list[dict[str, Any]]:
         with self.lock:
@@ -99,20 +152,24 @@ class Store:
             rows = self.db.execute(q + " ORDER BY id", args).fetchall()
         return [{**dict(r), "payload": json.loads(r["payload"])} for r in rows]
 
+    _USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "cost_usd")
+
     def cost(self, run_id: str) -> dict[str, Any]:
-        q = """
-        SELECT {grp} AS k,
-               SUM(json_extract(payload,'$.input_tokens')) AS input_tokens,
-               SUM(json_extract(payload,'$.output_tokens')) AS output_tokens,
-               SUM(json_extract(payload,'$.cache_read_input_tokens')) AS cache_read_input_tokens,
-               SUM(json_extract(payload,'$.cache_creation_input_tokens')) AS cache_creation_input_tokens,
-               SUM(json_extract(payload,'$.cost_usd')) AS cost_usd, COUNT(*) AS calls
-        FROM events WHERE run_id = ? AND type = 'usage' GROUP BY k
-        """
+        """Usage per agent and per model for one run, summed in Python so both databases agree."""
         with self.lock:
-            by_agent = [dict(r) for r in self.db.execute(q.format(grp="agent_id"), (run_id,))]
-            by_model = [dict(r) for r in self.db.execute(q.format(grp="json_extract(payload,'$.model')"), (run_id,))]
-        total = {k: sum(r[k] or 0 for r in by_agent) for k in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "cost_usd", "calls")}
+            rows = self.db.execute("SELECT agent_id, payload FROM events WHERE run_id = ? AND type = 'usage'", (run_id,)).fetchall()
+        groups: dict[str, dict[Any, dict[str, Any]]] = {"agent": defaultdict(lambda: {**dict.fromkeys(self._USAGE_KEYS, 0), "calls": 0}),
+                                                        "model": defaultdict(lambda: {**dict.fromkeys(self._USAGE_KEYS, 0), "calls": 0})}
+        for r in rows:
+            p = json.loads(r["payload"])
+            for dim, key in (("agent", r["agent_id"]), ("model", p.get("model"))):
+                g = groups[dim][key]
+                for k in self._USAGE_KEYS:
+                    g[k] += p.get(k) or 0
+                g["calls"] += 1
+        by_agent = [{"k": k, **v} for k, v in groups["agent"].items()]
+        by_model = [{"k": k, **v} for k, v in groups["model"].items()]
+        total = {k: sum(r[k] for r in by_agent) for k in (*self._USAGE_KEYS, "calls")}
         return {"total": total, "by_agent": by_agent, "by_model": by_model}
 
     # --- chat requests (one per task sent from Slack, Teams or the web) --------------------------
@@ -224,7 +281,9 @@ class Store:
 
     def link_identity(self, channel: str, channel_user_id: str, github_login: str, name: str) -> None:
         with self.lock:
-            self.db.execute("INSERT OR REPLACE INTO identities VALUES (?,?,?,?,?)", (channel, channel_user_id, github_login, name, time.time()))
+            self.db.execute("INSERT INTO identities VALUES (?,?,?,?,?) ON CONFLICT (channel, channel_user_id) DO UPDATE SET"
+                            " github_login = excluded.github_login, name = excluded.name, linked_at = excluded.linked_at",
+                            (channel, channel_user_id, github_login, name, time.time()))
             self.db.commit()
 
     def identity(self, channel: str, channel_user_id: str) -> dict[str, Any] | None:
@@ -236,10 +295,10 @@ class Store:
 
     def add_message(self, thread_id: str, kind: str, body: Any) -> int:
         with self.lock:
-            cur = self.db.execute("INSERT INTO thread_messages (thread_id, kind, body, ts) VALUES (?,?,?,?)",
-                                  (thread_id, kind, json.dumps(body, default=str), time.time()))
+            mid = self.db.insert_id("INSERT INTO thread_messages (thread_id, kind, body, ts) VALUES (?,?,?,?)",
+                                    (thread_id, kind, json.dumps(body, default=str), time.time()))
             self.db.commit()
-            return int(cur.lastrowid or 0)
+            return mid
 
     def messages(self, thread_id: str, after: int = 0) -> list[dict[str, Any]]:
         with self.lock:
