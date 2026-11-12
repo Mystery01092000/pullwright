@@ -27,7 +27,7 @@ from typing import Any
 
 DEFAULTS = Path(__file__).parent / "defaults"
 CONFIG_DIRS = (".pullwright", ".harness")  # first found wins; .harness is the pre-rename name
-ROLES = frozenset({"describer", "verifier", "supervisor", "worker", "diagnosis", "intake", "summarizer"})
+ROLES = frozenset({"describer", "verifier", "supervisor", "worker", "diagnosis", "intake", "summarizer", "responder"})
 # Claude Code tool names -> Pullwright's, so agents and hooks written for Claude Code work here
 CLAUDE_TOOLS = {"Read": "read_file", "Write": "write_file", "Edit": "edit_file", "MultiEdit": "edit_file",
                 "Glob": "glob", "Grep": "grep", "Bash": "bash", "LS": "glob"}

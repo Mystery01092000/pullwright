@@ -4,7 +4,13 @@ The dispatcher issues each job a token with a cap. The runner reaches every prov
 `<PULLWRIGHT_LLM_PROXY>/<provider>` with that token (providers.Router does this when PULLWRIGHT_LLM_PROXY is set):
 
     POST /llm/anthropic/v1/messages          Anthropic Messages, streamed or not
+    POST /llm/anthropic/v1/messages/count_tokens   free; Claude Code calls it
     POST /llm/<provider>/chat/completions    any OpenAI-compatible provider in providers.load_provider_configs()
+    POST /llm/github-token                   a fresh GitHub token for the job's repository, right before the push
+
+GitHub App tokens last an hour and a job can run longer, so the runner asks for a new one before it pushes. That
+call needs the job token and a second per-job secret (PULLWRIGHT_GITHUB_REFRESH). Agents never get that secret:
+external coders get the job token as their API key, and that key alone must not unlock a GitHub token.
 
 The proxy swaps the token for the real key, forwards the request, reads the usage from the response and charges
 the job. Once a job has spent its cap, further calls get HTTP 402 and the run stops on a budget error. A call that
@@ -12,12 +18,14 @@ is already in flight can overshoot the cap by one response.
 """
 from __future__ import annotations
 
+import asyncio
+import hmac
 import json
 import os
 import secrets
 import threading
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -42,6 +50,12 @@ class Grant:
     spent_usd: float = 0.0
     calls: int = 0
     by_model: dict[str, dict[str, float]] = field(default_factory=dict)  # model -> {cost_usd, calls, in, out, unpriced}
+    refresh: str = field(default_factory=lambda: "pwr_" + secrets.token_urlsafe(32))  # unlocks /llm/github-token
+
+    @property
+    def repo(self) -> str:
+        """`issue:owner/name#12` -> owner/name."""
+        return self.job.split(":", 1)[-1].rsplit("#", 1)[0]
 
     def to_dict(self) -> dict[str, Any]:
         return {"job": self.job, "cap_usd": self.cap_usd, "spent_usd": round(self.spent_usd, 6), "calls": self.calls, "by_model": self.by_model}
@@ -132,7 +146,9 @@ class _SSEUsage:
                         self.usage[k] = v
 
 
-def build_proxy(ledger: Ledger, env: Mapping[str, str] | None = None, transport: httpx.AsyncBaseTransport | None = None) -> Any:
+def build_proxy(ledger: Ledger, env: Mapping[str, str] | None = None, transport: httpx.AsyncBaseTransport | None = None,
+                github_token: Callable[[str], str] | None = None) -> Any:
+    """`github_token(repo)`: mints a fresh GitHub token for a repository (serves /llm/github-token)."""
 
     env = dict(os.environ if env is None else env)
     configs: dict[str, ProviderConfig] = load_provider_configs(env)
@@ -153,6 +169,43 @@ def build_proxy(ledger: Ledger, env: Mapping[str, str] | None = None, transport:
         if g.spent_usd >= g.cap_usd:
             return deny(402, f"job budget exhausted: ${g.spent_usd:.2f} of ${g.cap_usd:.2f}", "budget_exceeded")
         return g
+
+    @router.get("/spend")
+    async def job_spend(request: Request) -> Any:
+        """What this job has spent so far, by the proxy's count. External coders that report usage only at the end
+        (goose) take their cost from here, so the runner's budget check sees the real figure."""
+        g = ledger.get(_token(request.headers))
+        if g is None:
+            return deny(401, "unknown or expired Pullwright job token")
+        return {"spent_usd": round(g.spent_usd, 6), "cap_usd": g.cap_usd, "calls": g.calls}
+
+    @router.post("/github-token")
+    async def fresh_github_token(request: Request) -> Any:
+        g = ledger.get(_token(request.headers))
+        if g is None or not hmac.compare_digest(request.headers.get("x-pullwright-refresh", ""), g.refresh):
+            return deny(401, "unknown job token or refresh secret")
+        if github_token is None:
+            return deny(404, "this control plane does not hand out GitHub tokens", "not_found_error")
+        try:
+            token = await asyncio.to_thread(github_token, g.repo)
+        except Exception as e:
+            return deny(502, f"could not mint a GitHub token: {type(e).__name__}", "api_error")
+        return {"token": token, "repo": g.repo}
+
+    @router.post("/anthropic/v1/messages/count_tokens")
+    async def anthropic_count_tokens(request: Request) -> Any:
+        """Claude Code sizes its context with this; it is free, so nothing is charged."""
+        g = admit(request)
+        if not isinstance(g, Grant):
+            return g
+        key = env.get("ANTHROPIC_API_KEY", "")
+        if not key:
+            return deny(503, "the control plane has no ANTHROPIC_API_KEY", "api_error")
+        headers = {k: v for k, v in request.headers.items() if k.lower() in FORWARD_HEADERS}
+        headers["x-api-key"] = key
+        async with client() as http:
+            r = await http.post(f"{anthropic_url}/v1/messages/count_tokens", content=await request.body(), headers=headers)
+        return Response(r.content, status_code=r.status_code, media_type=r.headers.get("content-type"))
 
     @router.post("/anthropic/v1/messages")
     async def anthropic_messages(request: Request) -> Any:

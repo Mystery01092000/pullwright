@@ -100,3 +100,57 @@ def test_runner_env_keeps_keys_out_when_proxied(tmp_path):
     proxied = runner_env(environ, ("http://cp/llm", "pwj_t"))
     assert not {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "VLLM_KEY"} & set(proxied)
     assert proxied["PULLWRIGHT_LLM_TOKEN"] == "pwj_t" and proxied["PULLWRIGHT_MODEL_WORKER"] == "openai:gpt-x"
+
+
+def test_github_token_refresh_needs_the_job_token_and_the_refresh_secret():
+    minted = []
+    ledger = Ledger()
+    app = FastAPI()
+    app.include_router(build_proxy(ledger, env={"ANTHROPIC_API_KEY": "sk-real"},
+                                   github_token=lambda repo: minted.append(repo) or f"ghs_fresh_for_{repo}"))
+    c = TestClient(app)
+    tok = ledger.issue("issue:acme/app#12", 5.0)
+    secret = ledger.get(tok).refresh
+    # the job token alone (what an external coder holds as its API key) is not enough
+    assert c.post("/llm/github-token", headers={"authorization": f"Bearer {tok}"}).status_code == 401
+    assert c.post("/llm/github-token", headers={"authorization": f"Bearer {tok}", "x-pullwright-refresh": "pwr_wrong"}).status_code == 401
+    r = c.post("/llm/github-token", headers={"authorization": f"Bearer {tok}", "x-pullwright-refresh": secret})
+    assert r.status_code == 200 and r.json() == {"token": "ghs_fresh_for_acme/app", "repo": "acme/app"} and minted == ["acme/app"]
+    ledger.revoke(tok)
+    assert c.post("/llm/github-token", headers={"authorization": f"Bearer {tok}", "x-pullwright-refresh": secret}).status_code == 401
+
+
+def test_runner_swaps_in_the_fresh_token_before_pushing():
+    from pullwright.github.client import GitHub, PatAuth
+    from pullwright.runner.job import refresh_github
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        assert req.headers["x-pullwright-refresh"] == "pwr_s" and req.headers["authorization"] == "Bearer pwj_t"
+        return httpx.Response(200, json={"token": "ghs_new", "repo": "acme/app"})
+
+    gh = GitHub(PatAuth("ghs_old"))
+    env = {"PULLWRIGHT_LLM_PROXY": "http://cp/llm", "PULLWRIGHT_LLM_TOKEN": "pwj_t", "PULLWRIGHT_GITHUB_REFRESH": "pwr_s"}
+    assert refresh_github(gh, env, httpx.Client(transport=httpx.MockTransport(handler)))
+    assert gh.clone_url("acme/app") == "https://x-access-token:ghs_new@github.com/acme/app.git"
+    assert not refresh_github(GitHub(PatAuth("x")), {})  # no proxy: keep the token the job started with
+
+
+def test_agent_commands_do_not_see_runner_secrets(monkeypatch):
+    from pullwright.tools import agent_env
+
+    monkeypatch.setenv("PULLWRIGHT_GITHUB_TOKEN", "ghs_x")
+    monkeypatch.setenv("PULLWRIGHT_GITHUB_REFRESH", "pwr_x")
+    monkeypatch.setenv("PULLWRIGHT_LLM_TOKEN", "pwj_x")
+    monkeypatch.setenv("SOME_SETTING", "kept")
+    env = agent_env()
+    assert "PULLWRIGHT_GITHUB_TOKEN" not in env and "PULLWRIGHT_GITHUB_REFRESH" not in env and "PULLWRIGHT_LLM_TOKEN" not in env
+    assert env["SOME_SETTING"] == "kept"
+
+
+def test_job_spend_is_readable_with_the_job_token():
+    c, ledger = _app([])
+    tok = ledger.issue("issue:acme/app#3", 5.0)
+    ledger.charge(tok, "claude-sonnet-5-5", {"input_tokens": 1000, "output_tokens": 100})
+    r = c.get("/llm/spend", headers={"authorization": f"Bearer {tok}"})
+    assert r.status_code == 200 and r.json()["spent_usd"] > 0 and r.json()["cap_usd"] == 5.0
+    assert c.get("/llm/spend", headers={"authorization": "Bearer nope"}).status_code == 401

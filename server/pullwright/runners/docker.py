@@ -3,6 +3,12 @@
 Isolation: non-root user, CPU / memory / PID limits, no host mounts, removed when it exits. Secrets reach the
 container as `-e NAME` with the value in the docker client's environment, so they never appear on a command line
 or in `docker inspect` output of the client process.
+
+Warm caches: one named Docker volume (PULLWRIGHT_RUNNER_CACHE, default `pullwright-cache`; empty turns it off) is
+mounted at /home/runner/.cache, where the image keeps the npm, uv, pip and Go caches. Later jobs reuse earlier
+downloads instead of fetching every dependency again. The volume is shared by every repository's jobs. npm, uv and Go
+verify what they read from it against lockfile hashes, but a job could still plant files in the cache directories.
+Give each trust boundary its own volume, or turn the cache off, when the repositories don't trust each other.
 """
 from __future__ import annotations
 
@@ -41,6 +47,7 @@ class DockerRunner:
     network: str = "bridge"  # dependency installs need the network; restrict with a custom network if required
     docker: str = "docker"
     timeout_minutes: int = 90
+    cache_volume: str = os.environ.get("PULLWRIGHT_RUNNER_CACHE", "pullwright-cache")
 
     def argv(self, job: Job) -> list[str]:
         names = ["PULLWRIGHT_GITHUB_TOKEN", *sorted(job.env)]
@@ -48,6 +55,8 @@ class DockerRunner:
                 "--user", "1000:1000", "--cpus", self.cpus, "--memory", self.memory, "--pids-limit", str(self.pids),
                 "--network", self.network, "--security-opt", "no-new-privileges",
                 "--stop-timeout", "30"]
+        if self.cache_volume:
+            argv += ["-v", f"{self.cache_volume}:/home/runner/.cache"]
         for n in names:
             argv += ["-e", n]
         if "host.docker.internal" in job.env.get("PULLWRIGHT_LLM_PROXY", ""):

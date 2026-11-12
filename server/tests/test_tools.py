@@ -61,3 +61,17 @@ def test_bash_runs_and_guards(ctx):
     ctx.approve = lambda cmd: True
     out, err = run(ctx, "bash", command="rm a.py")
     assert not err and not (ctx.root / "a.py").exists()
+
+
+def test_runner_denies_killing_by_name_or_group_but_allows_a_pid():
+    import re
+
+    from pullwright.pipeline.work import RUNNER_DENY
+
+    def denied(cmd):
+        return any(re.search(p, cmd) for p in RUNNER_DENY)
+
+    for cmd in ['pkill -f "fincalc"', "killall node", "kill -9 -1", "kill 0", "kill -TERM 0", "kill $(pgrep -f vite)"]:
+        assert denied(cmd), cmd
+    for cmd in ["go run ./cmd/app & pid=$!; sleep 2; kill $pid", "kill 4321", "kill -9 12", "kill %1", "echo skill 0"]:
+        assert not denied(cmd), cmd

@@ -8,7 +8,8 @@ from pullwright.store import Store
 
 def test_control_plane_routes(monkeypatch, tmp_path: Path):
     """The assembled app: login at the root, the JSON API under /api (as the web UI calls it), the UI at /."""
-    for k in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "PULLWRIGHT_TEAMS_APP_ID", "GITHUB_APP_ID", "GITHUB_OAUTH_CLIENT_ID", "PULLWRIGHT_REPOS"):
+    for k in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "PULLWRIGHT_TEAMS_APP_ID", "GITHUB_APP_ID", "GITHUB_OAUTH_CLIENT_ID", "PULLWRIGHT_REPOS",
+              "PULLWRIGHT_ORG_CONFIG", "PULLWRIGHT_ORG_CONFIG_DIR"):  # not the developer's server/.env
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("PULLWRIGHT_SECRET", "test-secret")
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")

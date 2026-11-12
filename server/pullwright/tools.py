@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob as globmod
+import os
 import re
 import shutil
 import subprocess
@@ -109,13 +110,26 @@ def grep(ctx: ToolContext, pattern: str, path: str) -> str:
 
 
 # Commands that never run, and commands that need a human yes.
+# Secrets an agent's commands never see: GitHub credentials (the pipeline pushes), the token-refresh secret, and the
+# LLM proxy's job token. Without them a command can't push or mint a GitHub token, whatever the deny list misses.
+AGENT_SCRUB_ENV = ("PULLWRIGHT_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "PULLWRIGHT_GITHUB_REFRESH", "PULLWRIGHT_LLM_TOKEN",
+                   "PULLWRIGHT_ORG_CONFIG_TOKEN", "PULLWRIGHT_ORG_CONFIG_READ_TOKEN")
+
+
+def agent_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in AGENT_SCRUB_ENV}
+
+
 DENY = [r"\brm\s+-rf\s+[/~]", r"\bgit\s+push\b.*--force", r"\bgit\s+reset\s+--hard", r"\bmkfs\b", r"\bformat\s+[a-z]:"]
 ASK = [r"\brm\b", r"\bgit\s+push\b", r"\bsudo\b", r"\bcurl\b.*\|\s*(ba)?sh", r"\bnpm\s+publish\b", r"\bpip\s+install\b", r"\buv\s+add\b"]
 
 
 def bash(ctx: ToolContext, command: str) -> str:
-    if any(re.search(p, command) for p in (DENY if ctx.deny is None else ctx.deny)):
-        raise ToolError("command is denylisted")
+    hit = next((p for p in (DENY if ctx.deny is None else ctx.deny) if re.search(p, command)), None)
+    if hit is not None:
+        hint = (" Stop a background process by its PID instead: `cmd & pid=$!; ...; kill $pid`."
+                if re.search(r"kill|pgrep", hit) else "")
+        raise ToolError(f"command is denylisted (matches {hit!r}).{hint}")
     allowed = any(re.search(p, command) for p in (ctx.allow or []))
     if not allowed and any(re.search(p, command) for p in (ASK if ctx.ask is None else ctx.ask)):
         if ctx.approve is None or not ctx.approve(command):
@@ -123,7 +137,7 @@ def bash(ctx: ToolContext, command: str) -> str:
     sh = shutil.which("bash")
     argv = [sh, "-lc", command] if sh else ["powershell", "-NoProfile", "-Command", command]
     try:
-        r = subprocess.run(argv, cwd=ctx.root, capture_output=True, text=True, timeout=ctx.bash_timeout)
+        r = subprocess.run(argv, cwd=ctx.root, capture_output=True, text=True, timeout=ctx.bash_timeout, env=agent_env())
     except subprocess.TimeoutExpired:
         raise ToolError(f"timed out after {ctx.bash_timeout}s") from None
     out = (r.stdout + ("\n" + r.stderr if r.stderr else "")).strip()

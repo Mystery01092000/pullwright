@@ -12,7 +12,7 @@ from typing import Any
 from .events import Event
 
 STAGES = ("plan", "work", "review", "other")
-_ROLE_STAGE = {"describer": "plan", "verifier": "plan", "intake": "plan", "router": "plan",
+_ROLE_STAGE = {"describer": "plan", "verifier": "plan", "intake": "plan", "router": "plan", "responder": "plan", "claude-code": "work", "goose": "work",
                "supervisor": "work", "worker": "work", "diagnosis": "review", "reviewer": "review", "summarizer": "review"}
 STAGE_LABEL = {"plan": "Planning", "work": "Implementation", "review": "Review", "other": "Other"}
 

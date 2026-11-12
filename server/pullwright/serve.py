@@ -104,6 +104,7 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
                                              os.environ.get("PULLWRIGHT_TEAMS_TENANT_ID", "")), _json_env("PULLWRIGHT_TEAMS_REPOS"))
         intake.register(teams)
         parts["teams"] = teams
+    intake.recover()  # plans that were waiting in the previous process can no longer be decided
 
     ledger = None
     if os.environ.get("PULLWRIGHT_LLM_PROXY_URL"):
@@ -118,7 +119,7 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
     root.include_router(auth_routes)
     root.mount("/api", app)
     if ledger is not None:
-        root.include_router(build_proxy(ledger))
+        root.include_router(build_proxy(ledger, github_token=lambda repo: gh.auth.token(repo, fresh=True)))
     dist = Path(os.environ.get("PULLWRIGHT_WEB_DIST", Path(__file__).resolve().parents[2] / "web" / "dist"))
     if (dist / "index.html").is_file():
         from fastapi.staticfiles import StaticFiles

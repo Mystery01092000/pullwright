@@ -27,7 +27,8 @@ from .runners.base import Job, JobOutcome, Runner, follow
 
 log = logging.getLogger("pullwright.dispatcher")
 PASS_ENV = ("PULLWRIGHT_MAX_COST_USD", "PULLWRIGHT_MAX_ROUNDS", "PULLWRIGHT_FEEDBACK_TRIGGER", "PULLWRIGHT_MAIN_MODEL",
-            "PULLWRIGHT_WORKER_MODEL", "OLLAMA_BASE_URL")
+            "PULLWRIGHT_WORKER_MODEL", "OLLAMA_BASE_URL", "PULLWRIGHT_CODER", "PULLWRIGHT_CODER_BY_REPO", "PULLWRIGHT_CODER_MODEL",
+            "PULLWRIGHT_CODER_MAX_TURNS")
 
 
 def _inline(value: str) -> str:
@@ -80,12 +81,17 @@ class Dispatcher:
 
     def _env(self, key: str) -> dict[str, str]:
         proxy = None
+        refresh: dict[str, str] = {}
         if self.ledger is not None and self.proxy_url:
             cap = float(os.environ.get("PULLWRIGHT_MAX_COST_USD", "5"))
-            proxy = (self.proxy_url.rstrip("/"), self.ledger.issue(key, cap))
+            token = self.ledger.issue(key, cap)
+            proxy = (self.proxy_url.rstrip("/"), token)
+            grant = self.ledger.get(token)
+            if grant is not None:  # lets the runner fetch a fresh GitHub token before it pushes (llm_proxy)
+                refresh = {"PULLWRIGHT_GITHUB_REFRESH": grant.refresh}
         from . import orgconfig
 
-        return {**runner_env(dict(os.environ), proxy), **orgconfig.runner_env(self.gh)}
+        return {**runner_env(dict(os.environ), proxy), **refresh, **orgconfig.runner_env(self.gh)}
 
     def _settle(self, job: Job) -> dict[str, Any] | None:
         """Revoke the job's proxy token and keep what it spent (the proxy's count, which a runner cannot alter)."""
@@ -112,7 +118,7 @@ class Dispatcher:
         if not ready:
             return None
         _, repo, number = min(ready)
-        return Job(repo, number, self.gh.auth.token(repo), self._env(f"feedback:{repo}#{number}"), kind="feedback")
+        return Job(repo, number, self.gh.auth.token(repo, fresh=True), self._env(f"feedback:{repo}#{number}"), kind="feedback")
 
     def issue_job(self) -> Job | None:
         """The oldest queued issue across the watched repos that is not already running."""
@@ -124,7 +130,7 @@ class Dispatcher:
         if not candidates:
             return None
         _, task = min(candidates, key=lambda c: c[0])
-        return Job(task.repo, task.number, self.gh.auth.token(task.repo), self._env(f"issue:{task.repo}#{task.number}"))
+        return Job(task.repo, task.number, self.gh.auth.token(task.repo, fresh=True), self._env(f"issue:{task.repo}#{task.number}"))
 
     def next_job(self) -> Job | None:
         return self.feedback_job() or self.issue_job()

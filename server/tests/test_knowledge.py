@@ -111,5 +111,5 @@ def test_intake_picks_the_repo_when_the_task_names_none(tmp_path):
     assert store.request(rid)["repo"] == PORTFOLIO.repo
     assert ch.replies[0][1].startswith("Picked `arcanetech-ai/portfolio` (the task names it)")
     # nothing in the task matches: history alone does not pick, it orders the question
-    assert intake.on_mention(_mention(ASHA, "improve performance")) is None
+    assert intake.on_mention(_mention(ASHA, "improve performance", {"channel": "C1", "ts": "9.9"})) is None  # a new thread
     assert ch.replies[-1][1].startswith("Which repository? It could be `arcanetech-ai/portfolio`")

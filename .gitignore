@@ -8,3 +8,4 @@ web/dist/
 .env
 .pullwright-work/
 *.pem
+*.log

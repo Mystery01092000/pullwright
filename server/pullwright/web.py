@@ -55,6 +55,7 @@ class Signer:
 class WebChannel:
     """The web UI as a chat channel: the bot's replies and plan cards are stored per thread and polled by the UI."""
     name = "web"
+    records_messages = True  # intake reads the thread's history from these stored messages
 
     def __init__(self, store: Any) -> None:
         self.store = store
@@ -149,8 +150,8 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
             if first is None or first["kind"] != "user" or first["body"].get("login") != u["login"]:
                 raise HTTPException(404, "no such thread")
             live = next((x for x in store.requests(u["login"], 500) if x["thread_ref"].get("thread") == body.thread), None)
-            if live is not None and live["state"] in ("planning", "awaiting_approval", "queued", "working"):
-                raise HTTPException(409, "this thread already has a task in progress")
+            if live is not None and live["state"] == "planning":  # later states take chat: questions, approve, revise
+                raise HTTPException(409, "the plan for this thread is still being drafted")
             thread = body.thread
         text = f"{body.repo.strip()}: {body.task}" if body.repo.strip() else body.task
         store.add_message(thread, "user", {"text": text, "login": u["login"]})

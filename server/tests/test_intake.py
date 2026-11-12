@@ -27,6 +27,14 @@ def test_split_repo():
     assert split_repo("in arcane/app add a /health route") == ("arcane/app", "add a /health route")
     assert split_repo("add caching", "arcane/api") == ("arcane/api", "add caching")
     assert split_repo("add caching") == ("", "add caching")
+    # slashed words are not repositories unless they lead the message or are configured
+    known = {"arcane/app", "arcane/api"}
+    msg = "margin is long only, so drop the long/short selector"
+    assert split_repo(msg, "arcane/app", known) == ("arcane/app", msg)
+    assert split_repo("long/short positions are fine", "arcane/app", known) == ("arcane/app", "long/short positions are fine")
+    assert split_repo("also update src/app.ts in arcane/api", "arcane/app", known) == ("arcane/api", "also update src/app.ts in")
+    assert split_repo("other/repo: add hello", "", known) == ("other/repo", "add hello")  # explicit: rejected later
+    assert split_repo("in Arcane/App add a route", "", known) == ("Arcane/App", "add a route")
 
 
 def test_link_tokens_are_signed_and_expire():
@@ -143,7 +151,7 @@ def test_several_tasks_from_one_chat_are_separate_requests(setup):
     intake, ch, store, *_ = setup
     store.link_identity("slack", "U1", "asha", "Asha Rao")
     a = intake.on_mention(_mention(ASHA, "arcane/app: add hello", {"channel": "C1", "ts": "1.1"}))
-    b = intake.on_mention(_mention(ASHA, "arcane/app: cancel me", {"channel": "C1", "ts": "2.2"}))
+    b = intake.on_mention(_mention(ASHA, "arcane/app: add bye", {"channel": "C1", "ts": "2.2"}))
     assert a != b and {r["id"] for r in store.requests("asha")} == {a, b}
     ch.wait_for(lambda: len(ch.cards) == 2)
     intake.on_decision(Decision(b, "cancel", ASHA, "not now"))
@@ -279,3 +287,86 @@ def test_teams_verifies_the_bot_framework_token():
 
 def test_clean_text():
     assert clean_text("<at>Pullwright</at> add <b>x</b> &amp; y") == "add x & y"
+
+
+# --- conversation: answers, chat about a waiting plan, typed decisions ------------------------
+
+def _chat_intake(tmp_path, remote, turns):  # noqa: F811
+    fake = FakeGitHub()
+    store = Store()
+    client = FakeClient(turns)
+    intake = Intake(store, LocalGitHub(fake, remote), lambda: client, tmp_path / "clones")
+    ch = FakeChannel()
+    intake.register(ch)
+    store.link_identity("slack", "U1", "asha", "Asha Rao")
+    return intake, ch, store, client
+
+
+def _says(intent, reply, task=""):
+    return turn(text(json.dumps({"intent": intent, "reply": reply, "task": task})))
+
+
+def test_quick_intent():
+    from pullwright.intake import quick_intent
+    assert quick_intent("add a /health route", False, True) == ("change", "add a /health route")
+    assert quick_intent("Give me the summary of this project", False, True) is None  # a question: the responder answers
+    assert quick_intent("add that too", False, False) is None  # mid-conversation: the responder restates the task
+    assert quick_intent("fix it?", False, True) is None
+    assert quick_intent("LGTM!", True, False) == ("approve", "")
+    assert quick_intent("cancel", True, False) == ("cancel", "")
+    assert quick_intent("revise: also log it", True, False) == ("revise", "also log it")
+    assert quick_intent("what does step 2 do?", True, False) is None
+
+
+def test_a_question_is_answered_without_a_plan_or_an_issue(tmp_path, remote):  # noqa: F811
+    intake, ch, store, client = _chat_intake(tmp_path, remote, [_says("answer", "A tiny app.\n\n- `app.py`: the entry point")])
+    rid = intake.on_mention(_mention(ASHA, "arcane/app: give me the summary of this project"))
+    ch.wait_for(lambda: store.request(rid)["state"] == "answered")
+    assert ch.replies[-1][1].startswith("A tiny app.") and not ch.cards
+    req = store.request(rid)
+    assert req["issue_number"] is None and req["costs"]["runs"][-1]["kind"] == "chat"
+    assert client.calls[0]["output_config"]["format"]["schema"]["properties"]["intent"]["enum"][0] == "answer"
+
+
+def test_chat_then_confirm_plans_answers_about_the_plan_and_approves_by_text(tmp_path, remote):  # noqa: F811
+    turns = [_says("answer", "It prints a greeting."),
+             _says("change", "I'll plan that.", "Add hello() to app.py that returns 'hi', with a test"),
+             turn(text(json.dumps(SPEC))), turn(text(OK)),
+             _says("answer", "It checks that hello() returns 'hi'.")]
+    intake, ch, store, client = _chat_intake(tmp_path, remote, turns)
+    first = intake.on_mention(_mention(ASHA, "arcane/app: what does app.py do?"))
+    ch.wait_for(lambda: store.request(first)["state"] == "answered")
+    # "do it" mid-conversation: the responder turns the thread into a full task, which is planned
+    rid = intake.on_mention(_mention(ASHA, "ok, add a hello function then"))
+    assert rid != first
+    ch.wait_for(lambda: ch.cards)
+    assert "Developer: arcane/app: what does app.py do?" in client.calls[1]["messages"][0]["content"]
+    assert store.request(rid)["task"] == "Add hello() to app.py that returns 'hi', with a test"
+    assert "Add hello() to app.py" in client.calls[2]["messages"][0]["content"]  # the describer got the restated task
+    # a question about the waiting plan is answered; the plan keeps waiting
+    assert intake.on_mention(_mention(ASHA, "what will the test check?")) == rid
+    ch.wait_for(lambda: any("checks that hello()" in r for _, r in ch.replies))
+    assert "Plan waiting for the developer's approval" in client.calls[4]["messages"][0]["content"]
+    assert store.request(rid)["state"] == "awaiting_approval"
+    # a typed approval goes through the same checks as the button
+    intake.on_mention(_mention(ASHA, "looks good"))
+    ch.wait_for(lambda: store.request(rid)["state"] == "queued")
+    assert store.request(rid)["issue_number"] == 1 and len(client.calls) == 5  # "looks good" needed no LLM call
+
+
+def test_a_message_while_the_plan_is_drafted_is_held_back(tmp_path, remote):  # noqa: F811
+    intake, ch, store, client = _chat_intake(tmp_path, remote, [])
+    store.create_request("r1", "slack", "arcane/app", "add hello", "asha", "Asha Rao", dict(THREAD))  # state: planning
+    assert intake.on_mention(_mention(ASHA, "and also bye")) is None
+    assert "still drafting" in ch.replies[-1][1] and not client.calls
+
+
+def test_recover_closes_plans_orphaned_by_a_restart(tmp_path, remote):  # noqa: F811
+    intake, ch, store, _ = _chat_intake(tmp_path, remote, [])
+    store.create_request("r1", "slack", "arcane/app", "add hello", "asha", "Asha Rao", dict(THREAD))
+    store.update_request("r1", state="awaiting_approval")
+    store.create_request("r2", "slack", "arcane/app", "add bye", "asha", "Asha Rao", dict(THREAD))
+    store.update_request("r2", state="queued")  # on GitHub already: the dispatcher picks it up, nothing to close
+    assert intake.recover() == ["r1"]
+    assert store.request("r1")["state"] == "cancelled" and store.request("r2")["state"] == "queued"
+    assert "restarted" in ch.replies[-1][1]

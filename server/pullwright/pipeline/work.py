@@ -1,15 +1,20 @@
-"""Implementation of one approved issue inside the runner: supervisor + workers until every check passes.
+"""Implementation of one approved issue inside the runner: the coder works until every check passes.
 
-    setup -> supervisor (Haiku workers) -> checks --fail--> supervisor (failure excerpts) -> checks ...
+The coder (pullwright.coders) is Pullwright's own supervisor + Haiku workers, or Claude Code, or goose. Everything
+else here (setup, checks, review, commit) is deterministic or Pullwright's own, whichever coder runs.
+
+    setup -> coder -> checks --fail--> coder (failure excerpts) -> checks ...
                                              | all pass
                                              v
-                                         diagnosis --gaps--> supervisor (gaps) -> checks ...
+                                         diagnosis --gaps--> coder (gaps) -> checks ...
                                              | complete
                                              v
                                          commit -> green
 
-Bounded by `max_rounds` and the session's dollar cap. A round that ends red or over budget still commits,
-so the runner can push a draft PR that shows how far it got.
+Bounded by `max_rounds` and the session's dollar cap. The default is 2 rounds: the first checks, one fix round, then
+a draft PR for a human. Stripe's Minions allow at most two CI runs for the same reason: more rounds cost more and
+rarely help. A round that ends red or over budget still commits, so the runner can push a draft PR that shows how
+far it got.
 """
 from __future__ import annotations
 
@@ -18,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from .. import checks as checks_mod
-from .. import git, repomap
+from .. import coders, git, repomap
 from ..checks import CheckPlan, CheckResult
 from ..session import BudgetExceeded, Cancelled, Session
 
@@ -32,7 +37,19 @@ DIAG_SCHEMA: dict[str, Any] = {
     "required": ["complete", "gaps", "evidence"],
     "additionalProperties": False,
 }
-RUNNER_DENY = [r"\bgit\s+push\b", r"\bgh\s+(pr|issue|release|repo)\b"]  # the pipeline pushes and opens the PR itself
+RUNNER_DENY = [r"\bgit\s+push\b", r"\bgh\s+(pr|issue|release|repo)\b",  # the pipeline pushes and opens the PR itself
+               # killing by name or by group also matches the runner's own process ("pullwright-work owner/repo#n"),
+               # which ends the job: fincalc#1 died this way after `pkill -f fincalc`
+               r"\bpkill\b", r"\bkillall\b", r"\bkill\s+(-\S+\s+)*-?[01]\b(?!\d)", r"\bkill\b[^;&|]*\$\(\s*pgrep\b"]
+
+EXTERNAL_BRIEF = """You are implementing an approved GitHub issue inside a throwaway checkout of the repository, unattended.
+- Follow the approved plan. Write tests first, as the plan and the skills say.
+- Before you finish, run every check command listed below yourself and fix what fails. The pipeline runs them again
+  after you; if they still fail you get one more round, then a draft pull request goes to a human.
+- Do not commit, push or open pull requests: the pipeline commits, pushes and opens the PR when the checks pass.
+- Start servers or other background processes as `cmd & pid=$!` and stop them with `kill $pid`. Never use pkill or
+  killall: they also match the process running you.
+- Finish with a short report: what you changed (files), what you ran and its result, and anything left undone."""
 
 Status = Literal["green", "failed", "setup_failed", "budget", "cancelled"]
 
@@ -69,8 +86,8 @@ class WorkRun:
     """`branch` set: continue on that existing branch (a follow-up on an open PR) instead of creating one.
     `context`: what the agents must know beyond the plan, e.g. earlier runs and the reviewer comments to address."""
 
-    def __init__(self, session: Session, spec: WorkSpec, plan: CheckPlan | None = None, max_rounds: int = 4,
-                 branch: str | None = None, context: str = "", commit_message: str = "") -> None:
+    def __init__(self, session: Session, spec: WorkSpec, plan: CheckPlan | None = None, max_rounds: int = 2,
+                 branch: str | None = None, context: str = "", commit_message: str = "", coder: str = "native") -> None:
         self.s = session
         self.w = spec
         self.checks = plan if plan is not None else checks_mod.load(session.cwd)
@@ -78,6 +95,7 @@ class WorkRun:
         self.existing_branch = branch
         self.context = context
         self.commit_message = commit_message
+        self.coder = coder  # coders.CODERS: who does the agent steps
         self.s.extra_deny = [*self.s.extra_deny, *RUNNER_DENY]
         self._supervisor_id: str | None = None
         self._supervisions = 0
@@ -102,14 +120,29 @@ class WorkRun:
         )
 
     def supervise(self, feedback: str = "") -> str:
-        self.s.emit("state", state="working")
+        self.s.emit("state", state="working", coder=self.coder)
         self._supervisions += 1
-        self._supervisor_id = f"supervisor-{self.s.run_id}-{self._supervisions}"
-        agent = self.s.agent("supervisor", extra_tools=self.s.spawn_worker_tool(parent=lambda: self._supervisor_id))
         prompt = self._brief()
         if feedback:
             prompt += f"\n\nWork so far (git diff --stat):\n{git.diff_stat(self.s.cwd) or '(no changes yet)'}\n\nFix these first:\n{feedback}"
+        if self.coder != "native":
+            return self._external(prompt)
+        self._supervisor_id = f"supervisor-{self.s.run_id}-{self._supervisions}"
+        agent = self.s.agent("supervisor", extra_tools=self.s.spawn_worker_tool(parent=lambda: self._supervisor_id))
         return self.s.run(agent, prompt, agent_id=self._supervisor_id).text
+
+    def _external(self, prompt: str) -> str:
+        """Hand the agent step to Claude Code or goose. Skills go where that agent looks for them; the organisation's
+        and repository's instructions lead the prompt."""
+        cfg = self.s.cfg
+        instructions = "\n\n".join(x for x in (
+            EXTERNAL_BRIEF,
+            f"# Organisation instructions\n{cfg.org_instructions}" if cfg.org_instructions else "",
+            f"# Project instructions\n{cfg.instructions}" if cfg.instructions else "",
+        ) if x)
+        skills = {name: sk.path.parent for name, sk in cfg.skills.items()}
+        agent_id = f"{self.coder}-{self.s.run_id}-{self._supervisions}"
+        return coders.ExternalCoder(self.coder).run(self.s, prompt, agent_id, skills=skills, instructions=instructions)
 
     def run_checks(self) -> list[CheckResult]:
         self.s.emit("state", state="checking")

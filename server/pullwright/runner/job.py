@@ -6,7 +6,7 @@ feedback on an open Pullwright PR). Everything it needs comes from GitHub and th
     PULLWRIGHT_GITHUB_TOKEN   short-lived installation token for this one repository (minted by the dispatcher)
     ANTHROPIC_API_KEY         model access
     PULLWRIGHT_MAX_COST_USD   dollar cap for this issue (default 5)
-    PULLWRIGHT_MAX_ROUNDS     supervisor -> checks rounds (default 4)
+    PULLWRIGHT_MAX_ROUNDS     coder -> checks rounds (default 2)
     PULLWRIGHT_FEEDBACK_TRIGGER  any (default) | mention: which PR comments count as feedback
     PULLWRIGHT_ORG_CONFIG(_SHA, _TOKEN)  the organisation's shared agents/skills/hooks, pinned (pullwright.orgconfig)
 
@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import git, worklog
+from .. import coders, git, worklog
 from ..events import Event, EventBus
 from ..github import feedback, issues, prs
 from ..github.client import GitHub, PatAuth
@@ -54,6 +54,28 @@ class JobResult:
         return self.__dict__.copy()
 
 
+def refresh_github(gh: GitHub, env: dict[str, str] | None = None, http: Any = None) -> bool:
+    """Swap the job's GitHub token for a fresh one from the control plane, just before pushing: App tokens last an
+    hour and a job can run longer. Without the LLM proxy (or on any failure) the job keeps the token it started with."""
+    env = os.environ if env is None else env
+    proxy, token, secret = env.get("PULLWRIGHT_LLM_PROXY", ""), env.get("PULLWRIGHT_LLM_TOKEN", ""), env.get("PULLWRIGHT_GITHUB_REFRESH", "")
+    if not (proxy and token and secret):
+        return False
+    import httpx
+
+    try:
+        client = http or httpx.Client(timeout=30)
+        r = client.post(f"{proxy.rstrip('/')}/github-token", headers={"authorization": f"Bearer {token}", "x-pullwright-refresh": secret})
+        if r.status_code != 200:
+            print(f"could not refresh the GitHub token: HTTP {r.status_code}", file=sys.stderr, flush=True)
+            return False
+        gh.auth = PatAuth(r.json()["token"])
+        return True
+    except Exception as e:  # keep the original token; the push may still work
+        print(f"could not refresh the GitHub token: {type(e).__name__}", file=sys.stderr, flush=True)
+        return False
+
+
 def parse_ref(ref: str) -> tuple[str, int]:
     """'owner/repo#12' -> ('owner/repo', 12)"""
     repo, _, num = ref.partition("#")
@@ -63,7 +85,7 @@ def parse_ref(ref: str) -> tuple[str, int]:
 
 
 def run_job(repo: str, number: int, gh: GitHub, client: Any, workdir: Path, *, bus: EventBus | None = None,
-            max_cost_usd: float = 5.0, max_rounds: int = 4, log: Callable[[str], None] = print) -> JobResult:
+            max_cost_usd: float = 5.0, max_rounds: int = 2, log: Callable[[str], None] = print) -> JobResult:
     task = issues.parse(repo, gh.get_issue(repo, number))
     if task is None:
         raise ValueError(f"{repo}#{number} was not written by Pullwright (no pullwright block in the body)")
@@ -79,7 +101,8 @@ def run_job(repo: str, number: int, gh: GitHub, client: Any, workdir: Path, *, b
         session = Session(cwd=dest, client=client, run_id=f"{repo.split('/')[1]}-{number}", bus=bus,
                           max_cost_usd=max_cost_usd, approve=lambda _cmd: True)
         spec = WorkSpec(repo=repo, issue_number=number, title=task.title, task=task.task, spec=task.spec, requester_login=task.requester_login)
-        result = WorkRun(session, spec, max_rounds=max_rounds).run()
+        result = WorkRun(session, spec, max_rounds=max_rounds, coder=coders.coder_for(repo)).run()
+        refresh_github(gh)  # the work may have outlived the token the job started with
         if not result.commit:
             issues.set_state(gh, repo, number, issues.FAILED)
             reason = result.error or "the agents made no changes"
@@ -93,6 +116,7 @@ def run_job(repo: str, number: int, gh: GitHub, client: Any, workdir: Path, *, b
         return JobResult(repo, number, result.status, pr["html_url"], result.branch, result.cost_usd, result.rounds, result.error,
                          pr=pr["number"], costs=result.costs)
     except Exception as e:  # anything unexpected: leave the issue marked, never silently "working"
+        refresh_github(gh)
         issues.set_state(gh, repo, number, issues.FAILED)
         gh.comment(repo, number, f"The Pullwright runner failed: {type(e).__name__}: {str(e)[:1500]}")
         raise
@@ -108,7 +132,7 @@ def _log_entry(kind: str, result: Any, handled_until: str, addressed: list[str] 
 
 
 def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Path, *, bus: EventBus | None = None,
-                 max_cost_usd: float = 5.0, max_rounds: int = 4, mention_only: bool = False,
+                 max_cost_usd: float = 5.0, max_rounds: int = 2, mention_only: bool = False,
                  log: Callable[[str], None] = print) -> JobResult:
     """A follow-up on an open Pullwright PR: address the review feedback that arrived since the last run, on the same
     branch, with the original plan and every earlier run's log as context."""
@@ -136,8 +160,9 @@ def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Pa
         spec = WorkSpec(repo=repo, issue_number=issue_number, title=task.title, task=task.task, spec=task.spec,
                         requester_login=task.requester_login)
         context = "\n\n".join(x for x in (worklog.history(log_entries), feedback.brief(items)) if x)
-        result = WorkRun(session, spec, max_rounds=max_rounds, branch=branch, context=context,
+        result = WorkRun(session, spec, max_rounds=max_rounds, branch=branch, context=context, coder=coders.coder_for(repo),
                          commit_message=f"Address review feedback on #{pr_number}").run()
+        refresh_github(gh)
         if result.commit:
             git.push(dest, gh.clone_url(repo), branch)
         entry = _log_entry("feedback", result, handled_until=started, addressed=[f.id for f in items], feedback=[f.summary() for f in items])
@@ -151,6 +176,7 @@ def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Pa
         return JobResult(repo, issue_number, result.status, pr["html_url"], branch, result.cost_usd, result.rounds, result.error,
                          kind="feedback", pr=pr_number, addressed=len(items), costs=result.costs)
     except Exception as e:
+        refresh_github(gh)
         issues.set_state(gh, repo, pr_number, issues.FAILED)
         gh.comment(repo, pr_number, f"The Pullwright runner failed on this feedback: {type(e).__name__}: {str(e)[:1500]}")
         raise
@@ -186,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         if org:
             print(f"organisation config {os.environ.get('PULLWRIGHT_ORG_CONFIG')} at {org[:12]}", flush=True)
         caps = {"max_cost_usd": float(os.environ.get("PULLWRIGHT_MAX_COST_USD", "5")),
-                "max_rounds": int(os.environ.get("PULLWRIGHT_MAX_ROUNDS", "4"))}
+                "max_rounds": int(os.environ.get("PULLWRIGHT_MAX_ROUNDS", "2"))}
         gh, client = GitHub(PatAuth(token)), Router()
         if pr_mode:
             mention_only = os.environ.get("PULLWRIGHT_FEEDBACK_TRIGGER", "any") == "mention"

@@ -78,8 +78,9 @@ def fetch(url: str, spec: OrgSpec, dest: Path, sha: str = "") -> tuple[Path, str
     _git(dest, "fetch", "--quiet", "--depth", "1", url, sha or spec.ref or "HEAD")
     _git(dest, "checkout", "--quiet", "--force", "FETCH_HEAD")
     commit = _git(dest, "rev-parse", "HEAD")
-    folder = (dest / spec.subdir).resolve() if spec.subdir else dest
-    if dest.resolve() not in (folder, *folder.parents) or not folder.is_dir():
+    root = dest.resolve()  # compare resolved paths: the cache is often relative (.pullwright-work/...)
+    folder = (root / spec.subdir).resolve() if spec.subdir else root
+    if root not in (folder, *folder.parents) or not folder.is_dir():
         raise RuntimeError(f"org config folder {spec.subdir!r} not found in {spec.repo}")
     return folder, commit
 

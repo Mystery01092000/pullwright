@@ -65,6 +65,7 @@ class PlanRequest:
     requester: Developer
     thread_url: str = ""  # link back to the chat thread, shown on the issue
     thread_ref: dict[str, Any] = field(default_factory=dict)  # channel-specific address of the thread
+    links: str = ""  # what the request's links say, fetched before planning (pullwright.links)
 
 
 @dataclass
@@ -108,7 +109,8 @@ class PlanRun:
         self.verification: dict[str, Any] | None = None
 
     def _context(self) -> str:
-        return f"Repository: {self.request.repo}\n\n{repomap.build(self.s.cwd)}"
+        links = f"\n\n{self.request.links}" if self.request.links else ""
+        return f"Repository: {self.request.repo}\n\n{repomap.build(self.s.cwd)}{links}"
 
     def describe(self, feedback: str = "") -> dict[str, Any]:
         prompt = f"Request from {self.request.requester.name}:\n{self.request.task}\n\n{self._context()}"

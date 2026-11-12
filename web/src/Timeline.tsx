@@ -78,7 +78,21 @@ function StepIcon({ state }: { state: StepState }) {
   return <span className="grid h-6 w-6 place-items-center rounded-full" style={ring}><span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} /></span>
 }
 
-export function Stepper({ items }: { items: Step[] }) {
+export function Stepper({ items, vertical }: { items: Step[]; vertical?: boolean }) {
+  if (vertical) return (
+    <ol className="space-y-0" aria-label="Progress">
+      {items.map((st, i) => (
+        <li key={st.key} className="relative flex gap-3 pb-4 last:pb-0" aria-current={st.state === 'active' ? 'step' : undefined}>
+          {i < items.length - 1 && <span className="absolute top-6 bottom-0 left-3 w-px" style={{ background: st.state === 'done' ? 'var(--ok)' : 'var(--line)' }} aria-hidden />}
+          <span className="relative z-10 shrink-0 rounded-full" style={{ background: 'var(--bg)' }}><StepIcon state={st.state} /></span>
+          <span className="min-w-0 pt-0.5">
+            <span className="block text-sm font-medium" style={{ color: st.state === 'todo' ? 'var(--dim)' : 'var(--text)' }}>{st.label}</span>
+            {st.detail && <span className="block text-xs leading-snug" style={{ color: 'var(--dim)' }}>{st.detail}</span>}
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
   return (
     <ol className="grid grid-cols-5 gap-1" aria-label="Progress">
       {items.map((st, i) => (
@@ -114,7 +128,7 @@ function runViews(events: Activity[]): RunView[] {
 
 const FINAL = new Set(['green', 'failed', 'budget', 'setup_failed', 'cancelled'])
 
-export function RunnerPanel({ events }: { events: Activity[] }) {
+export function RunnerPanel({ events, compact }: { events: Activity[]; compact?: boolean }) {
   const runs = useMemo(() => runViews(events), [events])
   if (!runs.length) return null
   return (
@@ -131,7 +145,7 @@ export function RunnerPanel({ events }: { events: Activity[] }) {
               <span style={{ color: r.state === 'green' ? 'var(--ok)' : FINAL.has(r.state) ? 'var(--err)' : 'var(--muted)' }}>{RUN_LABEL[r.state] ?? r.state}</span>
               <span className="mono tnum ml-auto text-xs" style={{ color: 'var(--dim)' }}>{r.rounds} round{r.rounds === 1 ? '' : 's'} · {usd(r.cost)}</span>
             </header>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className={`grid gap-4 ${compact ? '' : 'md:grid-cols-2'}`}>
               <div>
                 <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--muted)' }}><ListChecks size={13} /> Checks{r.checks && r.checksRound ? ` (round ${r.checksRound}${r.checksRound < r.rounds && live ? '; round ' + r.rounds + ' running' : ''})` : ''}</h4>
                 {r.checks ? (
@@ -178,16 +192,16 @@ export function RunnerPanel({ events }: { events: Activity[] }) {
   )
 }
 
-export function RequestHeader({ req, items }: { req: RequestRow; items: Step[] }) {
+export function RequestHeader({ req, items, vertical }: { req: RequestRow; items: Step[]; vertical?: boolean }) {
   return (
-    <div className="glass r-lg mb-4 p-4">
+    <div className={`glass r-lg p-4 ${vertical ? '' : 'mb-4'}`}>
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="mono" style={{ color: 'var(--muted)' }}>{req.repo}</span>
         {req.issue_url && <a className="underline" style={{ color: 'var(--accent)' }} href={req.issue_url} target="_blank" rel="noreferrer">issue #{req.issue_number}</a>}
         {req.pr_url && <a className="inline-flex items-center gap-1 underline" style={{ color: 'var(--accent)' }} href={req.pr_url} target="_blank" rel="noreferrer"><GitPullRequest size={12} /> pull request</a>}
         <span className="mono tnum ml-auto" style={{ color: 'var(--dim)' }}>{usd(req.cost_usd)}</span>
       </div>
-      <Stepper items={items} />
+      <Stepper items={items} vertical={vertical} />
       {req.error && <p className="mt-3 text-sm" style={{ color: 'var(--err)' }}>{req.error}</p>}
     </div>
   )

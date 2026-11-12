@@ -1,7 +1,7 @@
 // The team flow in the browser: log in with GitHub, send a task for a repository, read the plan, approve it,
 // and follow the issue, the runner and the PR. The same requests made from Slack or Teams show up here too.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleCheck, FileCode, FlaskConical, GitPullRequest, Inbox, ListTodo, LogOut, Search, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { ChevronRight, CircleCheck, FileCode, FlaskConical, GitPullRequest, Inbox, ListTodo, LogOut, Search, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { team, type Me, type PlanCardBody, type RepoInfo, type RequestRow, type ThreadMessage } from './api'
 import { Btn, Md } from './Chat'
 import { usd } from './model'
@@ -9,10 +9,10 @@ import { RequestHeader, RunnerPanel, steps, useActivity } from './Timeline'
 
 export const STATE_LABEL: Record<string, string> = {
   planning: 'planning', awaiting_approval: 'needs approval', queued: 'queued', working: 'runner working',
-  pr_open: 'PR open', pr_draft: 'draft PR', cancelled: 'cancelled', failed: 'failed',
+  pr_open: 'PR open', pr_draft: 'draft PR', cancelled: 'cancelled', failed: 'failed', answered: 'answered',
 }
 export const stateColor = (s: string) =>
-  s === 'pr_open' ? 'var(--ok)' : s === 'failed' || s === 'cancelled' ? 'var(--err)' : s === 'awaiting_approval' ? 'var(--accent-deep)' : 'var(--warn)'
+  s === 'pr_open' || s === 'answered' ? 'var(--ok)' : s === 'failed' || s === 'cancelled' ? 'var(--err)' : s === 'awaiting_approval' ? 'var(--accent-deep)' : 'var(--warn)'
 const LIVE = new Set(['planning', 'awaiting_approval', 'queued', 'working'])
 
 // ---------- toasts ----------
@@ -55,7 +55,7 @@ export function LoginScreen() {
     <div className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
       <span className="h-10 w-10 rounded-[12px]" style={{ background: 'linear-gradient(160deg,#e8f6ff,#5fb2f2)', boxShadow: '0 0 30px rgba(95,178,242,.5)' }} aria-hidden />
       <h1 className="text-3xl font-semibold tracking-tight">Pullwright</h1>
-      <p style={{ color: 'var(--muted)' }}>Tag it with a task in Slack, Teams or here. It plans, you approve, a runner opens a PR that tags you.</p>
+      <p style={{ color: 'var(--muted)' }}>Ask it about a repository, or give it a change, in Slack, Teams or here. Questions get answers; changes get a plan, your approval, and a PR that tags you.</p>
       {linked && <p className="text-sm" style={{ color: linked === 'expired' ? 'var(--err)' : 'var(--ok)' }}>
         {linked === 'expired' ? 'That link expired. Ask the bot for a new one.' : `Your ${linked} account is linked.`}</p>}
       <a className="solid r-sm inline-flex h-10 items-center px-5 text-sm font-medium" href={team.loginUrl(location.pathname)}>Log in with GitHub</a>
@@ -71,6 +71,31 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
       <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase" style={{ color: 'var(--muted)' }}>{icon}{title}</h4>
       {children}
     </section>
+  )
+}
+
+/** Collapsed by default: detail a reviewer opens when they want it. */
+function Fold({ icon, title, badge, tone, children }: { icon: React.ReactNode; title: string; badge?: string; tone?: string; children: React.ReactNode }) {
+  return (
+    <details className="fold r-md">
+      <summary className="hov r-md flex cursor-pointer list-none items-center gap-1.5 px-2 py-1.5 text-xs font-medium tracking-wide uppercase" style={{ color: 'var(--muted)' }}>
+        <ChevronRight size={13} className="fold-chev shrink-0 transition-transform" aria-hidden />{icon}{title}
+        {badge && <span className="ml-auto text-xs font-normal tracking-normal normal-case" style={{ color: tone ?? 'var(--dim)' }}>{badge}</span>}
+      </summary>
+      <div className="px-2 pt-1 pb-2">{children}</div>
+    </details>
+  )
+}
+
+/** A long summary is cut to a few lines with "Show more", so the plan's structure stays visible. */
+function Summary({ text }: { text: string }) {
+  const [more, setMore] = useState(false)
+  const long = text.length > 360
+  return (
+    <div className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
+      <div className={long && !more ? 'fade-clamp' : ''}><Md text={text} /></div>
+      {long && <button className="mt-1 text-xs underline" style={{ color: 'var(--accent)' }} onClick={() => setMore(!more)}>{more ? 'Show less' : 'Show more'}</button>}
+    </div>
   )
 }
 
@@ -90,14 +115,7 @@ function PlanCard({ card, live, onDecide }: { card: PlanCardBody; live: boolean;
       {spec ? (
         <>
           <h3 className="text-lg font-semibold tracking-tight">{spec.title}</h3>
-          <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>{spec.summary}</p>
-          {v && (
-            <div className="mt-3 flex items-start gap-2 text-sm" style={{ color: v.approved ? 'var(--ok)' : 'var(--warn)' }}>
-              {v.approved ? <ShieldCheck size={16} className="mt-0.5 shrink-0" /> : <TriangleAlert size={16} className="mt-0.5 shrink-0" />}
-              <div>{v.approved ? 'The verifier checked this plan against the code.' : 'The verifier has corrections:'}
-                {!v.approved && <ul className="mt-1 list-disc pl-5" style={{ color: 'var(--text)' }}>{v.corrections.map((c) => <li key={c}>{c}</li>)}</ul>}</div>
-            </div>
-          )}
+          <Summary text={spec.summary} />
           <div className="grid gap-x-6 md:grid-cols-2">
             <Section icon={<ListTodo size={13} />} title="Steps">
               <ol className="list-decimal space-y-1 pl-5 text-sm">{spec.plan.map((s) => <li key={s}>{s}</li>)}</ol>
@@ -109,21 +127,36 @@ function PlanCard({ card, live, onDecide }: { card: PlanCardBody; live: boolean;
                 ))}
               </ul>
             </Section>
-            <Section icon={<CircleCheck size={13} />} title="Done when">
-              <ul className="space-y-1 text-sm">{spec.acceptance_criteria.map((s) => <li key={s} className="flex gap-2"><span style={{ color: 'var(--ok)' }} aria-hidden>✓</span>{s}</li>)}</ul>
-            </Section>
+          </div>
+          {spec.test_plan.length > 0 && (
             <Section icon={<FlaskConical size={13} />} title="Tests">
               <ul className="list-disc space-y-1 pl-5 text-sm">{spec.test_plan.map((s) => <li key={s}>{s}</li>)}</ul>
             </Section>
-          </div>
-          {spec.risks.length > 0 && (
-            <Section icon={<TriangleAlert size={13} />} title="Risks">
-              <ul className="list-disc space-y-1 pl-5 text-sm" style={{ color: 'var(--muted)' }}>{spec.risks.map((s) => <li key={s}>{s}</li>)}</ul>
-            </Section>
           )}
+          <div className="mt-4 space-y-1" style={{ boxShadow: 'inset 0 1px 0 var(--line)', paddingTop: 8 }}>
+            {v && (
+              <Fold icon={v.approved ? <ShieldCheck size={13} /> : <TriangleAlert size={13} />} title="Verifier"
+                badge={v.approved ? 'checked against the code' : `${v.corrections.length} correction${v.corrections.length === 1 ? '' : 's'}`}
+                tone={v.approved ? 'var(--ok)' : 'var(--warn)'}>
+                {v.approved ? <p className="text-sm" style={{ color: 'var(--muted)' }}>The verifier opened the files this plan names and found it ready to hand over.</p>
+                  : <ul className="list-disc space-y-1 pl-5 text-sm">{v.corrections.map((c) => <li key={c}>{c}</li>)}</ul>}
+                {v.evidence && <p className="mt-2 text-xs" style={{ color: 'var(--dim)' }}>{v.evidence}</p>}
+              </Fold>
+            )}
+            {spec.acceptance_criteria.length > 0 && (
+              <Fold icon={<CircleCheck size={13} />} title="Done when" badge={`${spec.acceptance_criteria.length}`}>
+                <ul className="space-y-1 text-sm">{spec.acceptance_criteria.map((s) => <li key={s} className="flex gap-2"><span style={{ color: 'var(--ok)' }} aria-hidden>✓</span>{s}</li>)}</ul>
+              </Fold>
+            )}
+            {spec.risks.length > 0 && (
+              <Fold icon={<TriangleAlert size={13} />} title="Risks" badge={`${spec.risks.length}`}>
+                <ul className="list-disc space-y-1 pl-5 text-sm" style={{ color: 'var(--muted)' }}>{spec.risks.map((s) => <li key={s}>{s}</li>)}</ul>
+              </Fold>
+            )}
+          </div>
           {spec.questions.length > 0 && (
             <div className="r-md mt-4 px-3 py-2 text-sm" style={{ background: 'var(--hover)', boxShadow: 'inset 3px 0 0 var(--warn)' }}>
-              <div className="mb-1 text-xs font-medium" style={{ color: 'var(--warn)' }}>Open questions: answer them with Revise</div>
+              <div className="mb-1 text-xs font-medium" style={{ color: 'var(--warn)' }}>Open questions: answer them in the chat below</div>
               <ul className="list-disc pl-5">{spec.questions.map((q) => <li key={q}>{q}</li>)}</ul>
             </div>
           )}
@@ -149,6 +182,7 @@ function PlanCard({ card, live, onDecide }: { card: PlanCardBody; live: boolean;
 }
 
 function PlanningSkeleton({ stage }: { stage: string }) {
+  if (stage === 'answering') return <p className="my-3 animate-pulse text-sm" style={{ color: 'var(--muted)' }}>Reading the repository…</p>
   const label = stage === 'verifying' ? 'The verifier is checking the plan against the code…' : 'The describer is reading the repository and drafting a plan…'
   return (
     <div className="glass r-lg my-3 p-5" aria-busy="true" aria-label="Planning">
@@ -163,12 +197,43 @@ function PlanningSkeleton({ stage }: { stage: string }) {
   )
 }
 
+function useMedia(query: string) {
+  const [match, setMatch] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const m = window.matchMedia(query)
+    const on = () => setMatch(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [query])
+  return match
+}
+
+/** A textarea that grows with its text (up to 40% of the screen); Enter sends, Shift+Enter adds a line. */
+function GrowingInput({ value, onChange, onSend, placeholder, minRows = 2, label }: {
+  value: string; onChange: (v: string) => void; onSend: () => void; placeholder: string; minRows?: number; label: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.4)}px`
+  }, [value])
+  return (
+    <textarea ref={ref} className="w-full resize-none bg-transparent px-3 py-2.5 text-[15px] leading-relaxed outline-none" rows={minRows}
+      placeholder={placeholder} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } }} />
+  )
+}
+
 // ---------- one request ----------
 
 function Thread({ thread }: { thread: string }) {
   const [msgs, setMsgs] = useState<ThreadMessage[]>([])
   const [req, setReq] = useState<RequestRow | null>(null)
   const last = useRef(0)
+  const bottom = useRef<HTMLDivElement>(null)
+  const docked = useMedia('(orientation: landscape) and (min-width: 1024px)')
   useEffect(() => {
     let stop = false // the component is keyed by thread, so state starts empty for each thread
     const poll = async () => {
@@ -186,9 +251,11 @@ function Thread({ thread }: { thread: string }) {
     const id = setInterval(poll, 2000)
     return () => { stop = true; clearInterval(id) }
   }, [thread])
+  useEffect(() => { bottom.current?.scrollIntoView({ block: 'end' }) }, [msgs.length])
   const events = useActivity(req?.id, !!req && LIVE.has(req.state))
   const items = useMemo(() => (req ? steps(req, events) : []), [req, events])
   const planStage = events.filter((e) => e.run_id.startsWith('req-') && e.type === 'state').at(-1)?.payload.state ?? 'describing'
+  const isTask = !!req && req.state !== 'answered' && !(req.state === 'failed' && !req.plan)
 
   const lastPlan = msgs.filter((m) => m.kind === 'plan').at(-1)
   const decide = async (d: 'approve' | 'revise' | 'cancel', feedback: string) => {
@@ -201,52 +268,73 @@ function Thread({ thread }: { thread: string }) {
     }
   }
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-12">
-      <div className="min-h-0 flex-1 overflow-auto pb-8">
-        {req && <RequestHeader req={req} items={items} />}
-        {msgs.map((m) =>
-          m.kind === 'user' ? (
-            <div key={m.id} className="my-3 flex justify-end"><div className="glass r-lg max-w-[80%] px-4 py-2 text-sm">{m.body.text}</div></div>
-          ) : m.kind === 'plan' ? (
-            <PlanCard key={m.id} card={m.body} live={m === lastPlan && req?.state === 'awaiting_approval'} onDecide={decide} />
-          ) : (
-            <div key={m.id} className="my-2 text-sm"><Md text={m.body.text} /></div>
-          ),
-        )}
-        {req?.state === 'planning' && <PlanningSkeleton stage={planStage} />}
-        <div className="mt-4"><RunnerPanel events={events} /></div>
+    <div className="flex h-full min-h-0 gap-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-12">
+        <div className="min-h-0 flex-1 overflow-auto pb-6">
+          <div className="mx-auto w-full max-w-4xl">
+            {req && isTask && !docked && <RequestHeader req={req} items={items} />}
+            {msgs.map((m) =>
+              m.kind === 'user' ? (
+                <div key={m.id} className="my-3 flex justify-end"><div className="glass r-lg max-w-[80%] whitespace-pre-wrap px-4 py-2 text-sm">{m.body.text}</div></div>
+              ) : m.kind === 'plan' ? (
+                <PlanCard key={m.id} card={m.body} live={m === lastPlan && req?.state === 'awaiting_approval'} onDecide={decide} />
+              ) : (
+                <div key={m.id} className="reply my-3 text-[15px] leading-relaxed"><Md text={m.body.text} /></div>
+              ),
+            )}
+            {req?.state === 'planning' && <PlanningSkeleton stage={planStage} />}
+            {!docked && <div className="mt-4"><RunnerPanel events={events} /></div>}
+            <div ref={bottom} />
+          </div>
+        </div>
+        {req?.state !== 'planning' && msgs.length > 0 && <div className="mx-auto w-full max-w-4xl"><FollowUp thread={thread} req={req} /></div>}
       </div>
-      {(!req || !LIVE.has(req.state)) && msgs.length > 0 && <FollowUp thread={thread} lastRepo={req?.repo ?? ''} />}
+      {docked && req && isTask && (
+        <aside className="w-[340px] shrink-0 space-y-3 overflow-auto pt-12 pb-3 xl:w-[380px]" aria-label="Lifecycle">
+          <RequestHeader req={req} items={items} vertical />
+          <RunnerPanel events={events} compact />
+        </aside>
+      )}
     </div>
   )
 }
 
-/** A message box under a thread with no task in progress: answer "which repository?", or send the next task. */
-function FollowUp({ thread, lastRepo }: { thread: string; lastRepo: string }) {
-  const [repo, setRepo] = useState(lastRepo || (localStorage.getItem('pw.repo') ?? ''))
+const FOLLOW_UP_HINT: Record<string, string> = {
+  awaiting_approval: 'Ask about the plan, ask for changes, or say "approve"…',
+  queued: 'Ask a question while the task waits for a runner…',
+  working: 'Ask a question while the runner works…',
+}
+
+/** The thread's message box: questions, decisions on a waiting plan, or the next task. */
+function FollowUp({ thread, req }: { thread: string; req: RequestRow | null }) {
+  const [repo, setRepo] = useState(req?.repo || (localStorage.getItem('pw.repo') ?? ''))
   const [task, setTask] = useState('')
   const [busy, setBusy] = useState(false)
   const [repos, setRepos] = useState<RepoInfo[]>([])
   useEffect(() => { team.repos().then(setRepos).catch(() => {}) }, [])
-  const badRepo = repo.trim() !== '' && !repo.includes('/')
+  const askRepo = !req // once the thread has a request, its repository is implied
+  const badRepo = askRepo && repo.trim() !== '' && !repo.includes('/')
   const send = async () => {
     if (!task.trim() || badRepo || busy) return
     setBusy(true)
-    try { await team.create(repo.trim(), task.trim(), thread); setTask('') }
+    try { await team.create(askRepo ? repo.trim() : '', task.trim(), thread); setTask('') }
     catch (e) { toast(`Could not send that: ${String(e).slice(0, 200)}`, 'err') }
     finally { setBusy(false) }
   }
   return (
-    <div className="glass r-lg mb-3 shrink-0 space-y-2 p-2.5">
-      <div className="flex gap-2">
-        <input className="field mono r-sm w-48 shrink-0 px-2.5 py-1.5 text-xs outline-none sm:w-60" list="pw-repos-followup" value={repo}
-          onChange={(e) => setRepo(e.target.value)} placeholder="owner/repository" aria-label="Repository" aria-invalid={badRepo} />
-        <datalist id="pw-repos-followup">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
-        {repos.length > 0 && <span className="hidden truncate self-center text-[11px] md:inline" style={{ color: 'var(--dim)' }}>Configured: {repos.map((r) => r.repo).join(', ')}</span>}
-      </div>
-      <div className="flex items-end gap-2">
-        <textarea className="field r-sm min-h-[2.4rem] w-full px-3 py-2 text-sm outline-none" rows={2} placeholder="Send another task or answer the question above"
-          aria-label="Message" value={task} onChange={(e) => setTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }} />
+    <div className="glass r-lg mb-3 shrink-0 p-2">
+      {askRepo && (
+        <div className="flex gap-2 px-1 pb-1">
+          <input className="field mono r-sm w-56 shrink-0 px-2.5 py-1.5 text-xs outline-none" list="pw-repos-followup" value={repo}
+            onChange={(e) => setRepo(e.target.value)} placeholder="owner/repository" aria-label="Repository" aria-invalid={badRepo} />
+          <datalist id="pw-repos-followup">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
+        </div>
+      )}
+      <GrowingInput value={task} onChange={setTask} onSend={send} label="Message"
+        placeholder={FOLLOW_UP_HINT[req?.state ?? ''] ?? 'Ask a question, or describe the next change…'} />
+      <div className="flex items-center gap-2 px-1">
+        <span className="hidden text-[11px] sm:inline" style={{ color: 'var(--dim)' }}>Enter to send · Shift+Enter for a new line{req ? ` · ${req.repo}` : ''}</span>
+        <span className="ml-auto" />
         <Btn onClick={send} disabled={busy || !task.trim() || badRepo}>{busy ? 'Sending…' : 'Send'}</Btn>
       </div>
       {badRepo && <p className="px-1 text-xs" style={{ color: 'var(--err)' }}>Use the owner/repository form.</p>}
@@ -254,7 +342,7 @@ function FollowUp({ thread, lastRepo }: { thread: string; lastRepo: string }) {
   )
 }
 
-const EXAMPLES = ['Add a /health endpoint that returns the app version', 'Fix the flaky date test in tests/test_reports.py', 'Paginate GET /orders with a cursor']
+const EXAMPLES = ['Give me a summary of this project', 'Add a /health endpoint that returns the app version', 'Fix the flaky date test in tests/test_reports.py']
 
 function Composer({ onSent }: { onSent: (thread: string) => void }) {
   const [repo, setRepo] = useState(localStorage.getItem('pw.repo') ?? '')
@@ -272,22 +360,23 @@ function Composer({ onSent }: { onSent: (thread: string) => void }) {
     finally { setBusy(false) }
   }
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col justify-center gap-3 px-4">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-col justify-center gap-3 px-4">
       <h1 className="mb-1 text-center text-3xl font-semibold tracking-tight sm:text-4xl">What should we ship?</h1>
-      <p className="mb-4 text-center text-sm" style={{ color: 'var(--muted)' }}>
-        A describer and a verifier read the repository and plan the change. You approve it, it becomes an issue, and a runner opens a PR that tags you.
+      <p className="mx-auto mb-4 max-w-2xl text-center text-sm" style={{ color: 'var(--muted)' }}>
+        Ask about a repository and get an answer here. Ask for a change and you get a plan; once you approve it, a runner opens a PR that tags you.
       </p>
-      <div className="glass r-lg space-y-2 p-3">
-        <input className="field mono r-sm w-full px-3 py-2 text-sm outline-none" list="pw-repos" value={repo} onChange={(e) => setRepo(e.target.value)}
-          placeholder="owner/repository (leave empty: I'll pick it from the task)" aria-label="Repository" aria-invalid={badRepo} />
-        <datalist id="pw-repos">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
-        {badRepo && <p className="px-1 text-xs" style={{ color: 'var(--err)' }}>Use the owner/repository form.</p>}
-        <textarea className="field r-sm w-full px-3 py-2 text-sm outline-none" rows={5} placeholder="Describe the task" aria-label="Task"
-          value={task} onChange={(e) => setTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }} />
-        <div className="flex items-center gap-2">
-          <span className="hidden text-xs sm:inline" style={{ color: 'var(--dim)' }}>Ctrl+Enter to send</span>
+      <div className="glass r-lg p-2">
+        <div className="px-1 pb-1">
+          <input className="field mono r-sm w-full px-3 py-2 text-sm outline-none" list="pw-repos" value={repo} onChange={(e) => setRepo(e.target.value)}
+            placeholder="owner/repository (leave empty: I'll pick it from the task)" aria-label="Repository" aria-invalid={badRepo} />
+          <datalist id="pw-repos">{repos.map((r) => <option key={r.repo} value={r.repo}>{r.description}</option>)}</datalist>
+          {badRepo && <p className="px-1 pt-1 text-xs" style={{ color: 'var(--err)' }}>Use the owner/repository form.</p>}
+        </div>
+        <GrowingInput value={task} onChange={setTask} onSend={send} minRows={4} label="Task" placeholder="Ask a question or describe a change" />
+        <div className="flex items-center gap-2 px-1">
+          <span className="hidden text-xs sm:inline" style={{ color: 'var(--dim)' }}>Enter to send · Shift+Enter for a new line</span>
           <span className="ml-auto" />
-          <Btn onClick={send} disabled={busy || !task.trim() || badRepo}>{busy ? 'Sending…' : 'Plan it'}</Btn>
+          <Btn onClick={send} disabled={busy || !task.trim() || badRepo}>{busy ? 'Sending…' : 'Send'}</Btn>
         </div>
       </div>
       <div className="flex flex-wrap justify-center gap-2">

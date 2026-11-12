@@ -32,7 +32,7 @@ class TokenProvider(Protocol):
 class PatAuth:
     pat: str
 
-    def token(self, repo: str, read_only: bool = False) -> str:
+    def token(self, repo: str, read_only: bool = False, fresh: bool = False) -> str:
         return self.pat
 
 
@@ -51,11 +51,13 @@ class AppAuth:
         now = int(time.time())
         return jwt.encode({"iat": now - 60, "exp": now + 540, "iss": self.app_id}, self.private_key_pem, algorithm="RS256")
 
-    def token(self, repo: str, read_only: bool = False) -> str:
-        """`read_only`: a token that can only read contents (for the organisation config repository)."""
+    def token(self, repo: str, read_only: bool = False, fresh: bool = False) -> str:
+        """`read_only`: a token that can only read contents (for the organisation config repository).
+        `fresh`: a newly minted token (its full hour), for a runner job; the control plane's own calls reuse a cached
+        one while it has 5 minutes left. A job handed a cached token can outlive it: fincalc#1 lost its push that way."""
         key = f"{repo}:ro" if read_only else repo
         cached = self._cache.get(key)
-        if cached and cached[1] - time.time() > 300:
+        if cached and not fresh and cached[1] - time.time() > 300:
             return cached[0]
         auth = {"Authorization": f"Bearer {self.jwt()}"}
         r = self.http.get(f"/repos/{repo}/installation", headers=auth)

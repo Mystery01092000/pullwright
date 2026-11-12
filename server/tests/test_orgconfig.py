@@ -120,6 +120,14 @@ def test_fetch_pins_a_commit_and_a_folder(tmp_path: Path):
     assert orgconfig.OrgSpec.parse("acme/cfg") == orgconfig.OrgSpec("acme/cfg", "", "")
 
 
+def test_fetch_whole_repo_into_a_relative_cache(tmp_path: Path, monkeypatch):
+    """No folder in the spec, and a relative cache path (the server's default .pullwright-work/...)."""
+    url, _, second = _bare_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    folder, commit = orgconfig.fetch(url, orgconfig.OrgSpec.parse("acme/agent-config"), Path("work") / "org")
+    assert commit == second and folder == (tmp_path / "work" / "org").resolve() and (folder / "pullwright").is_dir()
+
+
 def test_runner_env_carries_the_pinned_commit_and_a_read_only_token(monkeypatch):
     calls = []
 

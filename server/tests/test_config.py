@@ -18,7 +18,7 @@ def test_frontmatter():
 
 def test_defaults_without_harness_dir(tmp_path: Path):
     cfg = load_config(tmp_path)
-    assert cfg.root is None and set(cfg.agents) == {"intake", "supervisor", "worker", "diagnosis", "summarizer", "describer", "verifier"}
+    assert cfg.root is None and set(cfg.agents) == {"intake", "supervisor", "worker", "diagnosis", "summarizer", "describer", "verifier", "responder"}
     # planning agents never write or run anything: they see the repo read-only
     assert cfg.agent("describer").tools == ["read_file", "glob", "grep"] and cfg.agent("verifier").tools == ["read_file", "glob", "grep"]
     assert cfg.agent("intake").tools == ["read_file", "glob", "grep"] and cfg.agent("intake").max_turns == 15
@@ -62,7 +62,8 @@ def test_hooks_block_and_pass(tmp_path: Path):
 
 def test_guardrails_in_tool_context(tmp_path: Path):
     ctx = ToolContext(root=tmp_path, deny=["\\bcurl\\b"], ask=["\\becho\\b"], allow=["^echo ok"])
-    assert execute(ctx, "bash", {"command": "curl x"}, ["bash"]) == ("command is denylisted", True)
+    out, err = execute(ctx, "bash", {"command": "curl x"}, ["bash"])
+    assert err and out.startswith("command is denylisted")
     assert execute(ctx, "bash", {"command": "echo nope"}, ["bash"])[1] is True  # ask, no approver
     out, err = execute(ctx, "bash", {"command": "echo ok"}, ["bash"])
     assert not err and "ok" in out  # allow beats ask
