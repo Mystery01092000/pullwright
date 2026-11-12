@@ -45,4 +45,8 @@ An agent whose name isn't a Pullwright role becomes a specialist, for example `s
 - **No hooks on the control plane.** Planning runs read-only and executes no hooks, neither the organisation's nor the repository's. Hooks run only inside the isolated runner.
 - **Review it like code.** Hooks are shell commands that run in every runner, so protect the repository with branch protection and required reviews, and pin a tag.
 
-For local development, `PULLWRIGHT_ORG_CONFIG_DIR=/path/to/folder` uses a folder directly.
+## On a personal account
+
+The shared repository can be on any GitHub account, organisation or personal. If the Pullwright GitHub App is installed there, nothing else is needed. If it isn't (for example, the App belongs to an organisation and the repository is on your personal account), set `PULLWRIGHT_ORG_CONFIG_READ_TOKEN` to a fine-grained token limited to that one repository with **Contents: read-only**. The control plane and the runners then use it instead of an App token.
+
+For local development, `PULLWRIGHT_ORG_CONFIG_DIR=/path/to/folder` uses a folder directly. A ready sample in Claude Code's layout is in [examples/org-config](../examples/org-config): a security-reviewer specialist, a commit-messages skill, a hook that blocks commands printing secrets, and two shared deny rules.

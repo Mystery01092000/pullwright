@@ -1,0 +1,3 @@
+{
+  "deny": ["\\bgit\\s+push\\b.*\\b(main|master)\\b", "\\bcurl\\b[^|]*\\|\\s*(ba)?sh\\b"]
+}

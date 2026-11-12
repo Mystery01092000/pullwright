@@ -1,0 +1,445 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta name='color-scheme' content='light dark'><title>Pullwright: a proposal for adoption</title><style>
+:root{--bg:#f7f7f5;--paper:#fff;--ink:#16171b;--quiet:#55585f;--line:#d9dbe0;--axis:#8d9098;--tint:#f1f2f4;--accent:#2a6fd6;--accent-fill:rgba(42,111,214,.10);--code:#f1f2f4}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1013;--paper:#16171b;--ink:#eceef2;--quiet:#a6a9b1;--line:#2c2e35;--axis:#80838c;--tint:#1d1f24;--accent:#5b9cf0;--accent-fill:rgba(91,156,240,.14);--code:#1f2126}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:860px;margin:0 auto;padding:48px 24px 80px}
+.hero{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;margin-bottom:32px}
+.hero h1{margin:0 0 8px;font-size:32px;line-height:1.2;letter-spacing:-.02em}
+.hero p.tag{margin:0;color:var(--quiet);font-size:17px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:24px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.stat span{color:var(--quiet);font-size:13px}
+h2{font-size:22px;letter-spacing:-.01em;margin:40px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+p,li{max-width:72ch}a{color:var(--accent)}code{font:13px ui-monospace,"Cascadia Code",Consolas,monospace;background:var(--code);padding:.1em .35em;border-radius:5px}
+blockquote{margin:0;color:var(--quiet)}
+.tablewrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--quiet);font-size:13px;background:var(--tint)}tr:last-child td{border-bottom:0}
+figure{margin:20px 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px}
+figure svg{width:100%;height:auto;display:block}
+svg .title{font-size:15px;font-weight:600;fill:var(--ink)}svg .name{font-size:13px;font-weight:600;fill:var(--ink)}
+svg .sub{font-size:11.5px;fill:var(--quiet)}svg .sub.strong{fill:var(--ink)}svg .bold{font-weight:600}svg .zonename{font-size:11.5px;font-weight:600;fill:var(--quiet)}
+svg .box{fill:none;stroke:var(--axis);stroke-width:1.25}svg .box.accent{fill:var(--accent-fill);stroke:var(--accent);stroke-width:2}
+svg .zone{fill:none;stroke:var(--line);stroke-width:1.25}svg .zone.tint{fill:var(--tint)}
+svg .line{fill:none;stroke:var(--axis);stroke-width:1.25}svg .dashed{stroke-dasharray:4 3}svg .head{fill:var(--axis)}svg .gate{fill:var(--tint);stroke:var(--axis);stroke-width:1.25}
+footer{margin-top:48px;color:var(--quiet);font-size:14px}
+@media (max-width:600px){main{padding:24px 16px 56px}.hero{padding:22px}.hero h1{font-size:26px}}
+@media print{body{background:#fff}main{max-width:none;padding:0}.hero,figure,.tablewrap{break-inside:avoid}h2{break-after:avoid}}
+</style></head><body><main><header class='hero'><h1>Pullwright: a proposal for adoption</h1><p class='tag'>An open-source agent harness that turns a task written in chat into a reviewed pull request, run entirely on your own infrastructure.</p><div class='stats'><div class='stat'><b>$0.108 to $0.135</b><span>per task, chat to ready PR, measured</span></div><div class='stat'><b>2 human gates</b><span>plan approval and merge</span></div><div class='stat'><b>0 keys in runners</b><span>with the LLM proxy on</span></div><div class='stat'><b>Apache-2.0</b><span>self-hosted, auditable</span></div></div></header><h2>Summary</h2>
+<p>Pullwright turns a task written in Slack, Microsoft Teams or a web page into a reviewed pull request. A person approves every plan before any code is written, and a person reviews every pull request before it merges. In two end-to-end runs on a test repository, a task went from a chat message to a ready pull request for <strong>$0.108 and $0.135</strong> in model spend, with all checks passing on the first round.</p>
+<p>We propose a <strong>six-week pilot</strong> on two or three low-risk repositories, run entirely inside the organisation's own infrastructure. Pullwright is open source (Apache-2.0), so the organisation can audit every line, run it on its own machines and choose which model providers it trusts.</p>
+<p><strong>What the pilot needs:</strong></p>
+<ul>
+<li>a GitHub App installed on the pilot repositories;</li>
+<li>one machine or container host for the control plane;</li>
+<li>a model provider account (or a self-hosted model);</li>
+<li>two or three engineers willing to send it small tasks.</li>
+</ul>
+<h2>What it does</h2>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does what</th>
+<th>Can it change code or GitHub?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developer</td>
+<td>Writes the task in chat, approves or revises the plan, reviews the PR, leaves review comments</td>
+<td>Yes: they merge</td>
+</tr>
+<tr>
+<td>Describer agent</td>
+<td>Reads a read-only clone and drafts the plan: files, steps, acceptance criteria, test plan, risks, open questions</td>
+<td>No (read-only tools)</td>
+</tr>
+<tr>
+<td>Verifier agent</td>
+<td>Checks the plan against the code and sends corrections back to the describer</td>
+<td>No (read-only tools)</td>
+</tr>
+<tr>
+<td>Supervisor agent</td>
+<td>Splits the approved plan into tasks inside the runner and judges each result</td>
+<td>Only inside the runner's throwaway clone</td>
+</tr>
+<tr>
+<td>Worker and specialist agents</td>
+<td>Read, edit and run tests for one task each, on a cheaper model</td>
+<td>Only inside the runner's throwaway clone</td>
+</tr>
+<tr>
+<td>Checks</td>
+<td>The project's own tests, linters, type checks and build</td>
+<td>Decide when the work is done; no model involved</td>
+</tr>
+<tr>
+<td>Independent reviewer</td>
+<td>Compares the result with the acceptance criteria before the PR opens</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Pullwright pipeline</td>
+<td>Pushes the branch, opens the PR, posts the work log</td>
+<td>Yes, through a GitHub App limited to the installed repositories</td>
+</tr>
+</tbody>
+</table></div>
+<p>What stays human: approving the plan, merging the pull request, and any review feedback, which sends the runner back to the same branch.</p>
+<h2>How a run works end to end</h2>
+<p>A run has two halves: planning on the control plane, which never changes code, and implementation in a throwaway runner, which never merges.</p>
+<figure><svg viewBox='0 0 760 546' role='img' aria-label='Two human gates: the plan is approved before code, and a person merges'><defs><marker id='run-arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M0 0L10 5L0 10z' class='head'/></marker></defs><text x='24' y='30' class='title'>Two human gates: the plan is approved before code, and a person merges</text><rect x='16' y='52' width='728' height='226' rx='8' class='zone'/><text x='32' y='74' class='zonename' text-anchor='start'>Control plane: plan on a read-only clone</text><rect x='16' y='300' width='728' height='222' rx='8' class='zone tint'/><text x='728' y='322' class='zonename' text-anchor='end'>Runner: one isolated container per issue</text><path d='M240 120H276' class='line' marker-end='url(#run-arrow)'/><path d='M484 120H520' class='line' marker-end='url(#run-arrow)'/><path d='M624 148V202' class='line' marker-end='url(#run-arrow)'/><path d='M520 230H484' class='line' marker-end='url(#run-arrow)'/><path d='M276 230H240' class='line' marker-end='url(#run-arrow)'/><path d='M136 258V340' class='line' marker-end='url(#run-arrow)'/><path d='M240 368H276' class='line' marker-end='url(#run-arrow)'/><path d='M484 368H520' class='line' marker-end='url(#run-arrow)'/><path d='M624 396V450' class='line' marker-end='url(#run-arrow)'/><path d='M520 478H484' class='line' marker-end='url(#run-arrow)'/><path d='M276 478H240' class='line' marker-end='url(#run-arrow)'/><path d='M380 202V175H580V148' class='line dashed' marker-end='url(#run-arrow)'/><path d='M548 396V423' class='line dashed'/><path d='M600 450V423' class='line dashed'/><path d='M600 423H400V396' class='line dashed' marker-end='url(#run-arrow)'/><path d='M110 450V396' class='line dashed' marker-end='url(#run-arrow)'/><rect x='32.0' y='92.0' width='208' height='56' rx='8' class='box'/><text x='136' y='116' class='name' text-anchor='middle'>1. Ask in chat</text><text x='136' y='134' class='sub' text-anchor='middle'>Slack, Teams or the web UI</text><rect x='276.0' y='92.0' width='208' height='56' rx='8' class='box'/><text x='380' y='116' class='name' text-anchor='middle'>2. Intake</text><text x='380' y='134' class='sub' text-anchor='middle'>linked account, allowed repo</text><rect x='520.0' y='92.0' width='208' height='56' rx='8' class='box'/><text x='624' y='116' class='name' text-anchor='middle'>3. Describer drafts</text><text x='624' y='134' class='sub' text-anchor='middle'>plan on a read-only clone</text><rect x='520.0' y='202.0' width='208' height='56' rx='8' class='box'/><text x='624' y='226' class='name' text-anchor='middle'>4. Verifier checks</text><text x='624' y='244' class='sub' text-anchor='middle'>corrections sent back once</text><rect x='276.0' y='202.0' width='208' height='56' rx='8' class='box accent'/><text x='380' y='226' class='name' text-anchor='middle'>5. Approve the plan</text><text x='380' y='244' class='sub strong' text-anchor='middle'>write access; or revise</text><rect x='32.0' y='202.0' width='208' height='56' rx='8' class='box'/><text x='136' y='226' class='name' text-anchor='middle'>6. Issue is queued</text><text x='136' y='244' class='sub' text-anchor='middle'>label pullwright:queued</text><rect x='32.0' y='340.0' width='208' height='56' rx='8' class='box'/><text x='136' y='364' class='name' text-anchor='middle'>7. Runner starts</text><text x='136' y='382' class='sub' text-anchor='middle'>container, 1-hour token</text><rect x='276.0' y='340.0' width='208' height='56' rx='8' class='box'/><text x='380' y='364' class='name' text-anchor='middle'>8. Supervisor + workers</text><text x='380' y='382' class='sub' text-anchor='middle'>specialists, skills, hooks</text><rect x='520.0' y='340.0' width='208' height='56' rx='8' class='box'/><text x='624' y='364' class='name' text-anchor='middle'>9. Project checks</text><text x='624' y='382' class='sub' text-anchor='middle'>tests, lint, types, build</text><rect x='520.0' y='450.0' width='208' height='56' rx='8' class='box'/><text x='624' y='474' class='name' text-anchor='middle'>10. Independent review</text><text x='624' y='492' class='sub' text-anchor='middle'>against acceptance criteria</text><rect x='276.0' y='450.0' width='208' height='56' rx='8' class='box'/><text x='380' y='474' class='name' text-anchor='middle'>11. Pull request</text><text x='380' y='492' class='sub' text-anchor='middle'>push, review request, log</text><rect x='32.0' y='450.0' width='208' height='56' rx='8' class='box accent'/><text x='136' y='474' class='name' text-anchor='middle'>12. Human review, merge</text><text x='136' y='492' class='sub strong' text-anchor='middle'>people merge, never agents</text><text x='480' y='168' class='sub' text-anchor='middle'>revise: describer redrafts</text><text x='392' y='437' class='sub' text-anchor='end'>fail or gaps: retry (max 4)</text><text x='118' y='437' class='sub' text-anchor='start'>review comments</text></svg></figure>
+
+<h2>System design</h2>
+<p>Pullwright is two programs the organisation runs itself: a control plane (one process or container) and a runner image started once per issue. GitHub is the queue and the system of record; no other external service is involved.</p>
+<figure><svg viewBox='0 0 760 560' role='img' aria-label='Code and keys stay on your infrastructure; runners get a capped token'><defs><marker id='sys-arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='6' markerHeight='6' orient='auto-start-reverse'><path d='M0 0L10 5L0 10z' class='head'/></marker></defs><text x='24' y='30' class='title'>Code and keys stay on your infrastructure; runners get a capped token</text><rect x='16.0' y='52.0' width='162' height='48' rx='8' class='box'/><text x='97' y='72' class='name' text-anchor='middle'>Slack</text><text x='97' y='90' class='sub' text-anchor='middle'>Socket Mode</text><rect x='196.0' y='52.0' width='162' height='48' rx='8' class='box'/><text x='277' y='72' class='name' text-anchor='middle'>Microsoft Teams</text><text x='277' y='90' class='sub' text-anchor='middle'>Bot Framework</text><rect x='376.0' y='52.0' width='162' height='48' rx='8' class='box'/><text x='457' y='72' class='name' text-anchor='middle'>Web UI</text><text x='457' y='90' class='sub' text-anchor='middle'>GitHub login</text><rect x='16' y='124' width='524' height='252' rx='8' class='zone'/><text x='32' y='146' class='zonename' text-anchor='start'>Control plane: your host or container</text><rect x='16' y='400' width='524' height='108' rx='8' class='zone tint'/><text x='170' y='422' class='zonename' text-anchor='start'>Runner: per issue, no keys</text><path d='M97 100V124' class='line' marker-end='url(#sys-arrow)'/><path d='M277 100V124' class='line' marker-end='url(#sys-arrow)'/><path d='M457 100V124' class='line' marker-end='url(#sys-arrow)'/><path d='M524 188H568' class='line' marker-end='url(#sys-arrow)'/><path d='M568 260H524' class='line' marker-end='url(#sys-arrow)'/><path d='M524 332H568' class='line' marker-end='url(#sys-arrow)'/><path d='M150 360V436' class='line' marker-end='url(#sys-arrow)'/><path d='M406 436V360' class='line' marker-end='url(#sys-arrow)'/><path d='M278 492V528H752V224H744' class='line' marker-end='url(#sys-arrow)'/><rect x='32.0' y='160.0' width='236' height='56' rx='8' class='box'/><text x='150' y='184' class='name' text-anchor='middle'>Web API + UI</text><text x='150' y='202' class='sub' text-anchor='middle'>requests, timeline, queue, costs</text><rect x='288.0' y='160.0' width='236' height='56' rx='8' class='box'/><text x='406' y='184' class='name' text-anchor='middle'>Intake + planning</text><text x='406' y='202' class='sub' text-anchor='middle'>describer, verifier; no hooks</text><rect x='32.0' y='232.0' width='236' height='56' rx='8' class='box'/><text x='150' y='256' class='name' text-anchor='middle'>Store</text><text x='150' y='274' class='sub' text-anchor='middle'>SQLite or Postgres; every event</text><rect x='288.0' y='232.0' width='236' height='56' rx='8' class='box'/><text x='406' y='256' class='name' text-anchor='middle'>Org config sync</text><text x='406' y='274' class='sub' text-anchor='middle'>skills, agents, hooks; pinned</text><rect x='32.0' y='304.0' width='236' height='56' rx='8' class='box'/><text x='150' y='328' class='name' text-anchor='middle'>Dispatcher</text><text x='150' y='346' class='sub' text-anchor='middle'>oldest queued issue first</text><rect x='288.0' y='304.0' width='236' height='56' rx='8' class='box accent'/><text x='406' y='328' class='name' text-anchor='middle'>LLM proxy</text><text x='406' y='346' class='sub strong' text-anchor='middle'>job tokens, dollar caps</text><rect x='32.0' y='436.0' width='492' height='56' rx='8' class='box'/><text x='278' y='460' class='name' text-anchor='middle'>Supervisor, workers and specialists, then checks and review</text><text x='278' y='478' class='sub' text-anchor='middle'>the project&#x27;s own tests, lint, types and build decide when it is done</text><rect x='568' y='160' width='176' height='128' rx='8' class='box'/><text x='656' y='184' class='name' text-anchor='middle'>GitHub</text><text x='584' y='204' class='sub' text-anchor='start'>App on chosen repos</text><text x='584' y='220' class='sub' text-anchor='start'>issues are the queue</text><text x='584' y='236' class='sub' text-anchor='start'>branches and PRs</text><text x='584' y='252' class='sub' text-anchor='start'>org config repository</text><rect x='568' y='304' width='176' height='88' rx='8' class='box'/><text x='656' y='328' class='name' text-anchor='middle'>Model providers</text><text x='584' y='348' class='sub' text-anchor='start'>Anthropic, OpenAI,</text><text x='584' y='364' class='sub' text-anchor='start'>Gemini, OpenRouter,</text><text x='584' y='380' class='sub' text-anchor='start'>or self-hosted</text><text x='158' y='392' class='sub' text-anchor='start'>starts it, 1-hour token</text><text x='414' y='392' class='sub' text-anchor='start'>model calls</text><text x='520' y='546' class='sub' text-anchor='middle'>push the branch, open the PR</text></svg></figure>
+
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Channels</td>
+<td>Slack (Socket Mode, no public URL), Microsoft Teams (Bot Framework, verified JWTs), web UI (GitHub login). Chat accounts are linked to GitHub logins through a signed link.</td>
+</tr>
+<tr>
+<td>Intake and planning</td>
+<td>Turns a mention into a request, clones the repository read-only, runs the describer and verifier, posts the plan card, waits for a write-access approval, and opens the issue.</td>
+</tr>
+<tr>
+<td>Store</td>
+<td>Requests, threads, every agent event and cost breakdown. SQLite for one machine, Postgres for a shared deployment.</td>
+</tr>
+<tr>
+<td>Org config sync</td>
+<td>Fetches the shared skills, agents and hooks repository, pins the commit, hands that commit to each runner.</td>
+</tr>
+<tr>
+<td>Dispatcher</td>
+<td>Watches GitHub for queued issues and PRs with new review comments, and starts one runner per piece of work.</td>
+</tr>
+<tr>
+<td>LLM proxy</td>
+<td>Holds the provider keys, swaps each runner's job token for the real key, meters usage and refuses calls past the cap.</td>
+</tr>
+<tr>
+<td>Runner</td>
+<td>Clones one repository with a one-hour token, runs the agents until the checks pass, gets an independent review, pushes the branch and opens the PR.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Guardrails and data protection</h2>
+<p>Code and credentials stay inside the organisation's own infrastructure. The only data that leaves is the prompt sent to the model provider the organisation chooses, and that can be a self-hosted model.</p>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>What Pullwright does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where code goes</td>
+<td>Cloned only onto the organisation's control plane (read-only, for planning) and into throwaway runner containers. Nothing is sent to Pullwright's authors; there is no telemetry.</td>
+</tr>
+<tr>
+<td>What reaches a model provider</td>
+<td>The task, the plan, the file contents and command output the agents read. With a self-hosted model, nothing leaves the network. The provider is chosen per role.</td>
+</tr>
+<tr>
+<td>API keys</td>
+<td>With the LLM proxy on, runners never hold a provider key. Each job gets a token that works only through the control plane, is capped in dollars and is revoked when the job ends.</td>
+</tr>
+<tr>
+<td>GitHub access</td>
+<td>A GitHub App installed only on approved repositories. Each runner gets a token for one repository that expires within an hour. The shared-config repository is read with a contents-only token.</td>
+</tr>
+<tr>
+<td>Who can start work</td>
+<td>Anyone linked to a GitHub account can ask for a plan; only people with write access to the repository can approve one. Tasks for repositories outside the configured list are refused.</td>
+</tr>
+<tr>
+<td>What agents can do</td>
+<td>Planning agents have read-only tools. Runner agents work in a non-root container with CPU, memory and process limits, no host mounts and no-new-privileges. Agents cannot push or call <code>gh</code>.</td>
+</tr>
+<tr>
+<td>Dangerous commands</td>
+<td>A built-in deny list blocks force pushes, hard resets, recursive deletes of <code>/</code> or <code>~</code> and disk formatting. Inside a runner, <code>git push</code> and <code>gh</code> are blocked too. The organisation adds its own patterns, and a repository cannot remove them.</td>
+</tr>
+<tr>
+<td>Configured commands</td>
+<td>Hooks run only inside the isolated runner, never on the control plane.</td>
+</tr>
+<tr>
+<td>Who steers follow-ups</td>
+<td>Only comments from people with write access. Bot and outsider comments are ignored.</td>
+</tr>
+<tr>
+<td>Secrets in logs</td>
+<td>Tokens are stripped from saved git remotes and redacted from errors. Secrets reach containers by environment variable name, never on a command line.</td>
+</tr>
+<tr>
+<td>Runaway spend</td>
+<td>Dollar caps per plan and per issue, a round limit, and the proxy's central cap.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>What the organisation should still do:</strong></p>
+<ul>
+<li>run the pilot on repositories with no production secrets in them;</li>
+<li>restrict runner network egress to package mirrors, GitHub and the control plane;</li>
+<li>protect the shared-config repository with required reviews.</li>
+</ul>
+<h2>Production-grade practices</h2>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Correctness</td>
+<td>The project's tests, linters, type checks and build are the gate. A run that stops red opens a draft PR that says why.</td>
+</tr>
+<tr>
+<td>Human control</td>
+<td>Plan approval by a write-access holder, PR review before merge, and review comments that send the runner back to the same branch, with a work log on every run.</td>
+</tr>
+<tr>
+<td>Isolation</td>
+<td>One throwaway container per issue: non-root, resource limits, no host mounts, removed on exit, 90-minute timeout.</td>
+</tr>
+<tr>
+<td>Budgets</td>
+<td>Per-plan cap (default $1), per-issue cap (default $5), round limit (default 4), enforced in the agent loop and again in the LLM proxy.</td>
+</tr>
+<tr>
+<td>Cost visibility</td>
+<td>Tokens and dollars on every call. Cost per stage and model on every PR. A web Costs view per stage, model, repository, requester and day.</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>Every agent turn, tool call, check result and state change is an event. Each request has a live timeline and runner panel.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>134 automated tests with a scripted model and a fake GitHub. CI runs them on every push, including against Postgres, and builds the web UI and both container images.</td>
+</tr>
+<tr>
+<td>Evals</td>
+<td>Planning evals (do plans name the right files; does the verifier catch planted mistakes) and implementation evals (pass rate and cost per task).</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>One container for the control plane (Docker Compose included) with a healthcheck; SQLite or Postgres; amd64 and arm64 images on tagged releases.</td>
+</tr>
+<tr>
+<td>Change control</td>
+<td>Shared agents, skills and hooks live in a reviewed repository pinned to a tag. Each task runs against the exact commit the control plane resolved.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Using the organisation's shared skills, agents and hooks</h2>
+<p>One setting, <code>PULLWRIGHT_ORG_CONFIG=&lt;owner&gt;/&lt;repo&gt;@&lt;tag&gt;</code>, points Pullwright at the shared repository. A repository already laid out for Claude Code (<code>.claude/agents</code>, <code>.claude/skills</code>, hooks in <code>.claude/settings.json</code>, <code>CLAUDE.md</code>) works without changes.</p>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>In the shared repository</th>
+<th>What it does in Pullwright</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An agent named after a Pullwright role</td>
+<td>Replaces that role's prompt, tools or model for every repository</td>
+</tr>
+<tr>
+<td>Any other agent (a security reviewer, a migration writer)</td>
+<td>Becomes a specialist the supervisor can hand a task to, within the same budget</td>
+</tr>
+<tr>
+<td>Skills</td>
+<td>Available to every agent, loaded on demand</td>
+</tr>
+<tr>
+<td>Hooks</td>
+<td>Run around every tool call inside the runner; exit code 2 blocks the call</td>
+</tr>
+<tr>
+<td><code>CLAUDE.md</code> or <code>instructions.md</code></td>
+<td>Added to every agent's prompt</td>
+</tr>
+<tr>
+<td>Guardrails</td>
+<td>Combined with each repository's lists; a repository cannot remove an organisation entry</td>
+</tr>
+</tbody>
+</table></div>
+<p>Order of precedence: built-in defaults, then the organisation, then the repository's own <code>.pullwright/</code> folder. Protective rules (deny lists and hooks) are combined rather than overridden.</p>
+<p><strong>How it stays consistent and safe:</strong></p>
+<ul>
+<li>The control plane reads the shared repository with a contents-only token and records the commit; each runner uses exactly that commit.</li>
+<li>If the repository can't be read at startup, Pullwright refuses to start, so it never runs without the organisation's rules.</li>
+<li>The repository can be on any GitHub account; a read-only token covers the case where the App isn't installed there.</li>
+</ul>
+<h2>Models and providers</h2>
+<p>Every role can run on a different provider. The defaults are Claude Sonnet 5.5 for planning, supervision and review, and Claude Haiku 5.5 for workers.</p>
+<ul>
+<li><strong>Built in:</strong> Anthropic, OpenAI, Google Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together and Ollama.</li>
+<li><strong>Self-hosted:</strong> any OpenAI-compatible server (vLLM, Ollama, an internal gateway), with its own prices for cost reporting.</li>
+<li><strong>Choosing:</strong> one setting per role for the organisation, or per repository.</li>
+<li><strong>Verified live so far:</strong> Claude models end to end, and a local Ollama model through the LLM proxy with tool calls.</li>
+</ul>
+<h2>Cost</h2>
+<p>A small, well-scoped task has cost about ten to fourteen cents end to end, and most of that was planning.</p>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Run (2026-11-11)</th>
+<th>Planning</th>
+<th>Implementation</th>
+<th>Total</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add <code>OrderStore.remove</code> and a half-up percentage discount, with tests</td>
+<td>$0.088</td>
+<td>$0.047</td>
+<td>$0.135</td>
+<td>PR ready, checks green in round 1, 72 s runner time</td>
+</tr>
+<tr>
+<td>Sort <code>OrderStore.list()</code> by total (from the web UI)</td>
+<td>$0.067</td>
+<td>$0.041</td>
+<td>$0.108</td>
+<td>PR ready, checks green in round 1</td>
+</tr>
+</tbody>
+</table></div>
+<p>In the planning evals, a single describer pass cost $0.023 to $0.025 and a verifier pass $0.013. Larger tasks cost more. The caps stop any one task at $1 of planning and $5 of implementation by default.</p>
+<h2>Pilot plan</h2>
+<figure><svg viewBox='0 0 760 300' role='img' aria-label='A six-week pilot ends in a go or no-go decision on measured results'><text x='24' y='34' class='title'>A six-week pilot ends in a go or no-go decision on measured results</text><rect x='24' y='60' width='164' height='152' rx='8' class='box'/><text x='40' y='84' class='name'>1. Set up</text><text x='40' y='102' class='sub' text-anchor='start'>Week 1</text><text x='40' y='128' class='sub strong'>App on 2-3 repos</text><text x='40' y='144' class='sub strong'>control plane deployed</text><text x='40' y='160' class='sub strong'>providers approved</text><text x='40' y='176' class='sub strong'>shared config pinned</text><rect x='204' y='60' width='164' height='152' rx='8' class='box'/><text x='220' y='84' class='name'>2. Supervised use</text><text x='220' y='102' class='sub' text-anchor='start'>Weeks 2-3</text><text x='220' y='128' class='sub strong'>2-3 engineers</text><text x='220' y='144' class='sub strong'>small, testable tasks</text><text x='220' y='160' class='sub strong'>every PR reviewed</text><rect x='384' y='60' width='164' height='152' rx='8' class='box'/><text x='400' y='84' class='name'>3. Measure, tune</text><text x='400' y='102' class='sub' text-anchor='start'>Weeks 4-5</text><text x='400' y='128' class='sub strong'>merge rate, cost</text><text x='400' y='144' class='sub strong'>tune shared agents</text><text x='400' y='160' class='sub strong'>run the evals</text><rect x='564' y='60' width='164' height='152' rx='8' class='box accent'/><text x='580' y='84' class='name'>4. Decide</text><text x='580' y='102' class='sub' text-anchor='start'>Week 6</text><text x='580' y='128' class='sub strong'>readout to leads</text><text x='580' y='144' class='sub strong'>expand, adjust</text><text x='580' y='160' class='sub strong'>or stop</text><line x1='24' x2='728' y1='236' y2='236' class='line'/><path d='M194 226l10 10l-10 10l-10 -10z' class='gate'/><text x='194' y='266' class='sub strong bold' text-anchor='middle'>Sandbox task green</text><text x='194' y='282' class='sub' text-anchor='middle'>end to end</text><path d='M374 226l10 10l-10 10l-10 -10z' class='gate'/><text x='374' y='266' class='sub strong bold' text-anchor='middle'>10+ PRs reviewed</text><text x='374' y='282' class='sub' text-anchor='middle'>no guardrail breach</text><path d='M554 226l10 10l-10 10l-10 -10z' class='gate'/><text x='554' y='266' class='sub strong bold' text-anchor='middle'>Metrics collected</text><text x='554' y='282' class='sub' text-anchor='middle'>for the readout</text></svg></figure>
+
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>When</th>
+<th>What happens</th>
+<th>Gate to the next phase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Set up</td>
+<td>Week 1</td>
+<td>GitHub App on 2-3 repositories, control plane deployed, providers approved, shared config pinned</td>
+<td>A sandbox task goes green end to end</td>
+</tr>
+<tr>
+<td>2. Supervised use</td>
+<td>Weeks 2-3</td>
+<td>2-3 engineers send small, testable tasks; every PR reviewed</td>
+<td>10 or more PRs reviewed, no guardrail breach</td>
+</tr>
+<tr>
+<td>3. Measure and tune</td>
+<td>Weeks 4-5</td>
+<td>Track merge rate and cost; tune shared agents and skills; run the evals</td>
+<td>Metrics collected for the readout</td>
+</tr>
+<tr>
+<td>4. Decide</td>
+<td>Week 6</td>
+<td>Readout to engineering leads: expand, adjust or stop</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>How it is measured</th>
+<th>Proposed target (to agree)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PRs merged with at most minor changes</td>
+<td>PR outcomes on the pilot repositories</td>
+<td>Half or more</td>
+</tr>
+<tr>
+<td>Cost per merged PR</td>
+<td>The Costs view and the PR cost tables</td>
+<td>Agreed per repository before week 2</td>
+</tr>
+<tr>
+<td>Time from task to ready PR</td>
+<td>Request and PR timestamps</td>
+<td>Faster than the team's usual time for the same task size</td>
+</tr>
+<tr>
+<td>Guardrail incidents</td>
+<td>Blocked commands, hook results, runner logs</td>
+<td>Zero data leaving approved providers</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Risks, limits and open questions</h2>
+<div class='tablewrap'><table>
+<thead>
+<tr>
+<th>Risk or limit</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agents produce plausible but wrong code</td>
+<td>Checks gate every PR, an independent reviewer compares the result with the acceptance criteria, and a person reviews before merge. Pilot repositories need decent tests.</td>
+</tr>
+<tr>
+<td>Code is sent to an external model provider</td>
+<td>Choose an approved provider per role, or a self-hosted model. Pilot on repositories without sensitive code.</td>
+</tr>
+<tr>
+<td>A malicious repository change tries to steer the agents</td>
+<td>Planning is read-only. Only write-access holders approve or steer. Agents cannot push. Hooks run only in the runner.</td>
+</tr>
+<tr>
+<td>The control plane host is a high-value target</td>
+<td>It holds the GitHub App key and the provider keys. Run it on a dedicated, patched host.</td>
+</tr>
+<tr>
+<td>Live verification is incomplete</td>
+<td>Verified live: GitHub App, web UI, Docker runner, LLM proxy, Claude and Ollama models. Not yet: Slack and Teams, other hosted providers.</td>
+</tr>
+<tr>
+<td>Single-machine scale</td>
+<td>One issue at a time by default (configurable). An EC2 runner backend is on the roadmap.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Open questions for the organisation:</strong></p>
+<ul>
+<li>Which model providers are approved for source code?</li>
+<li>Which two or three repositories suit a pilot (good tests, no production secrets)?</li>
+<li>Where will the control plane run, and who operates it?</li>
+<li>Which chat tool first: Slack, Teams or the web UI?</li>
+<li>Is the shared skills, agents and hooks repository ready, and which tag should Pullwright use?</li>
+</ul>
+<hr />
+<p>Source code, documentation and setup guides: https://github.com/Mystery01092000/pullwright</p><footer>Generated from pullwright-overview.md. Source and setup guides: <a href='https://github.com/Mystery01092000/pullwright'>github.com/Mystery01092000/pullwright</a></footer></main></body></html>

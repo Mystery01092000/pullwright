@@ -52,6 +52,7 @@ There are two layers:
 |---|---|---|
 | `PULLWRIGHT_ORG_CONFIG` | unset | `owner/repo[@ref][:folder]`: shared agents, skills, hooks, instructions and guardrails for every repository |
 | `PULLWRIGHT_ORG_CONFIG_REFRESH` | `300` | Seconds between fetches; each runner job is pinned to the commit the control plane last fetched |
+| `PULLWRIGHT_ORG_CONFIG_READ_TOKEN` | unset | A fine-grained, read-only token for the shared repository when the GitHub App is not installed on it (any account) |
 | `PULLWRIGHT_ORG_CONFIG_DIR` | unset | A local folder instead (development) |
 
 ### Cost and effort caps

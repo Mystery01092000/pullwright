@@ -11,6 +11,10 @@ plan and its implementation use the same version even if the repository changes 
 
 The folder is read by config.read_layer: `.pullwright/` layout or Claude Code's `.claude/` layout. Layering and
 merge rules: config.py. For local development, PULLWRIGHT_ORG_CONFIG_DIR points at a folder directly.
+
+The repository can live on any account (an organisation or a personal one). When the GitHub App is not installed
+there, set PULLWRIGHT_ORG_CONFIG_READ_TOKEN to a fine-grained token limited to that one repository with
+Contents: read-only; it is then used instead of an App token, by the control plane and by runners.
 """
 from __future__ import annotations
 
@@ -80,10 +84,15 @@ def fetch(url: str, spec: OrgSpec, dest: Path, sha: str = "") -> tuple[Path, str
     return folder, commit
 
 
+def _read_token(gh: Any, repo: str) -> str:
+    """A token that can read the config repository: the dedicated read token if set, else a read-only App token."""
+    return os.environ.get("PULLWRIGHT_ORG_CONFIG_READ_TOKEN") or gh.auth.token(repo, read_only=True)
+
+
 def sync(gh: Any, value: str, cache: Path) -> tuple[Path, str]:
-    """Fetch the organisation repository through the GitHub App (read-only token) and make it this process's layer."""
+    """Fetch the organisation repository (read-only token) and make it this process's layer."""
     spec = OrgSpec.parse(value)
-    url = f"https://x-access-token:{gh.auth.token(spec.repo, read_only=True)}@github.com/{spec.repo}.git"
+    url = f"https://x-access-token:{_read_token(gh, spec.repo)}@github.com/{spec.repo}.git"
     with _lock:
         folder, commit = fetch(url, spec, cache / spec.repo.replace("/", "__"))
         if commit != _state["sha"]:
@@ -98,7 +107,7 @@ def runner_env(gh: Any) -> dict[str, str]:
         return {}
     spec = OrgSpec.parse(_state["spec"])
     return {"PULLWRIGHT_ORG_CONFIG": _state["spec"], "PULLWRIGHT_ORG_CONFIG_SHA": _state["sha"],
-            "PULLWRIGHT_ORG_CONFIG_TOKEN": gh.auth.token(spec.repo, read_only=True)}
+            "PULLWRIGHT_ORG_CONFIG_TOKEN": _read_token(gh, spec.repo)}
 
 
 def load_in_runner(workdir: Path) -> str:

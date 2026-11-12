@@ -158,9 +158,13 @@ class HarnessConfig:
         for h in self.hooks:
             if h.event != event or not re.search(h.match, key):
                 continue
-            env = {**os.environ, "PULLWRIGHT_CONFIG_DIR": h.root, "PULLWRIGHT_PROJECT_DIR": str(cwd), "CLAUDE_PROJECT_DIR": str(cwd)}
+            own = {"PULLWRIGHT_CONFIG_DIR": h.root, "PULLWRIGHT_PROJECT_DIR": str(cwd), "CLAUDE_PROJECT_DIR": str(cwd)}
+            env = {**os.environ, **own}
+            command = h.command
+            for k, v in own.items():  # substituted here too, so hooks also work where the shell does not expand $VARS (cmd.exe)
+                command = command.replace("${" + k + "}", v).replace("$" + k, v)
             try:
-                r = subprocess.run(h.command, shell=True, cwd=cwd, input=json.dumps({**compat, **payload}), capture_output=True,
+                r = subprocess.run(command, shell=True, cwd=cwd, input=json.dumps({**compat, **payload}), capture_output=True,
                                    text=True, timeout=30, env=env)
             except subprocess.TimeoutExpired:
                 if event == "pre_tool":
