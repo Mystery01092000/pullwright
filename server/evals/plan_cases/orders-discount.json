@@ -1,0 +1,23 @@
+{
+  "kind": "describe",
+  "task": "Support a percentage discount code on an order: the total applies the discount before tax, rounded half-up to cents.",
+  "expect_files": [
+    "orders/pricing.py",
+    "orders/models.py",
+    "tests/test_pricing.py"
+  ],
+  "min_recall": 1.0,
+  "min_precision": 0.5,
+  "files": {
+    "README.md": "# orders\n\nA tiny orders service: an in-memory store, pricing rules and a JSON HTTP API.\n",
+    "orders/__init__.py": "",
+    "orders/models.py": "from dataclasses import dataclass, field\n\n\n@dataclass\nclass Item:\n    sku: str\n    qty: int\n    unit_price: float\n\n\n@dataclass\nclass Order:\n    id: int\n    customer: str\n    items: list[Item] = field(default_factory=list)\n    created_at: float = 0.0\n",
+    "orders/store.py": "from .models import Order\n\n\nclass OrderStore:\n    def __init__(self) -> None:\n        self._orders: dict[int, Order] = {}\n\n    def add(self, order: Order) -> None:\n        self._orders[order.id] = order\n\n    def get(self, order_id: int) -> Order | None:\n        return self._orders.get(order_id)\n\n    def all(self) -> list[Order]:\n        return sorted(self._orders.values(), key=lambda o: (o.created_at, o.id))\n",
+    "orders/pricing.py": "from .models import Order\n\n\ndef subtotal(order: Order) -> float:\n    return sum(i.qty * i.unit_price for i in order.items)\n\n\ndef total(order: Order, tax_rate: float = 0.0) -> float:\n    return round(subtotal(order) * (1 + tax_rate), 2)\n",
+    "orders/api.py": "import json\n\nfrom .pricing import total\nfrom .store import OrderStore\n\nSTORE = OrderStore()\n\n\ndef list_orders(query: dict[str, str]) -> str:\n    return json.dumps([{\"id\": o.id, \"customer\": o.customer, \"total\": total(o)} for o in STORE.all()])\n\n\ndef get_order(order_id: int) -> str:\n    o = STORE.get(order_id)\n    return json.dumps({\"error\": \"not found\"}) if o is None else json.dumps({\"id\": o.id, \"total\": total(o)})\n",
+    "orders/emails.py": "def receipt(customer: str, amount: float) -> str:\n    return f\"Thanks {customer}, you paid ${amount:.2f}.\"\n",
+    "tests/test_pricing.py": "from orders.models import Item, Order\nfrom orders.pricing import subtotal, total\n\n\ndef test_total():\n    o = Order(1, \"a\", [Item(\"x\", 2, 5.0)])\n    assert subtotal(o) == 10.0 and total(o, 0.1) == 11.0\n",
+    "tests/test_api.py": "import json\n\nfrom orders.api import STORE, list_orders\nfrom orders.models import Item, Order\n\n\ndef test_list():\n    STORE.add(Order(1, \"a\", [Item(\"x\", 1, 3.0)]))\n    assert json.loads(list_orders({}))[0][\"total\"] == 3.0\n",
+    "pyproject.toml": "[project]\nname = \"orders\"\nversion = \"0.1.0\"\n"
+  }
+}

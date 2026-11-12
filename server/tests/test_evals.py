@@ -62,3 +62,24 @@ def test_team_pipeline_eval_measures_plan_and_work_separately():
     assert ok["stage_cost_usd"]["plan"] > 0 and ok["stage_cost_usd"]["work"] > 0
     bad = run_team_case(case, FakeClient(_team_turns(False)[:-1]), max_rounds=1)  # checks fail, no review
     assert not bad["passed"] and bad["state"] == "failed" and bad["checks"] == []
+
+
+def test_planning_evals_score_files_and_planted_mistakes():
+    from evals.planning import file_scores, load_cases, run_case, table
+
+    assert file_scores(["./orders/api.py", "orders/store.py", "README.md"], ["orders/api.py", "orders/store.py"]) == (1.0, 0.667)
+    cases = {c["name"]: c for c in load_cases()}
+    assert {"orders-pagination", "verify-missing-function"} <= set(cases)
+
+    good = json.dumps({"title": "Paginate", "summary": "s", "plan": ["p"], "acceptance_criteria": ["a"], "test_plan": ["t"], "risks": [], "questions": [],
+                       "relevant_files": [{"path": p, "why": "w"} for p in ("orders/api.py", "orders/store.py", "tests/test_api.py", "README.md")]})
+    r = run_case(cases["orders-pagination"], FakeClient([turn(text(good))]))
+    assert r["passed"] and r["recall"] == 1.0 and r["precision"] == 0.75 and r["cost_usd"] > 0
+
+    caught = json.dumps({"approved": False, "corrections": ["OrderStore has no find_by_customer method; add it"], "evidence": "read store.py"})
+    fooled = json.dumps({"approved": True, "corrections": [], "evidence": "looks fine"})
+    vague = json.dumps({"approved": False, "corrections": ["add more tests"], "evidence": "x"})
+    rs = [run_case(cases["verify-missing-function"], FakeClient([turn(text(t))])) for t in (caught, fooled, vague)]
+    assert [x["passed"] for x in rs] == [True, False, False]
+    md = table([r, *rs])
+    assert "approved the bad plan" in md and "rejected, missed the mistake" in md and "2/4" in md

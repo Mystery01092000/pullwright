@@ -21,7 +21,8 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 - [ ] **EC2 runner**: an instance per issue from a launch template, spot by default, event callback to the control plane
 - [x] **LLM proxy in the control plane**, so no provider key enters a runner and budgets are enforced centrally ([providers](providers.md))
 - [x] **Any provider per role**: OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, Ollama and custom OpenAI-compatible servers
-- [ ] **Planning and issue evals** with cost and pass rate per issue; nightly eval workflow
+- [x] **Planning evals**: describer file recall/precision and verifier catch rate on planted mistakes, with cost per plan ([evals](evals.md))
+- [ ] Issue evals and a nightly eval workflow
 - [x] Follow-ups on a PR: review comments from people with write access (or only `@pullwright` mentions) send the runner back to the same branch with the review as the brief, and every run posts a work log on the PR
 - [x] Post a cost breakdown per stage on the PR, and show it in a web cost view
 - [ ] Postgres option for the control plane store

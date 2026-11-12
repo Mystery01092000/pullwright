@@ -32,9 +32,24 @@ The shipped cases:
 | `python-bugfix` | a bug fix that must not modify the existing test |
 | `go-todo-api` | a Go project built from scratch, with tests and a Makefile |
 
+## Planning evals
+
+```bash
+cd server
+uv run python -m evals.planning                      # every case in evals/plan_cases
+uv run python -m evals.planning --model openai:<m>   # describer and verifier on another provider
+```
+
+Two kinds of case, run against one small fixture repository:
+
+- **describe**: one describer pass. Recall and precision of the plan's `relevant_files` against the files a correct plan must name (`expect_files`, with `min_recall` and `min_precision`).
+- **verify**: one verifier pass on a plan with a planted mistake, such as a method that doesn't exist or a missing acceptance criterion. It passes only when the verifier rejects the plan *and* a correction names the problem.
+
+Each result reports its cost. First run (2026-11-12, Claude Sonnet 5.5): 4/4 passed, recall 1.00 and precision 0.60 on both describe cases, both planted mistakes caught, **$0.018 per plan**.
+
 ## Planned
 
-- **Planning evals:** did the describer name the files that matter, and does the verifier catch a planted error in a plan?
 - **Issue evals:** run the work pipeline from a fixture issue and score pass rate, dollars and minutes per issue.
+- A nightly workflow that runs both suites and keeps the trend.
 
 See the [roadmap](roadmap.md).
