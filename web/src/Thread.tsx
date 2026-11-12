@@ -445,6 +445,8 @@ function threadTitle(req: RequestRow | null, plan?: PlanCardBody): string {
 export function Thread({ thread }: { thread: string }) {
   const [msgs, setMsgs] = useState<ThreadMessage[]>([])
   const [req, setReq] = useState<RequestRow | null>(null)
+  const [canPost, setCanPost] = useState(true)
+  const [missing, setMissing] = useState(false)
   const last = useRef(0)
   const loadedOnce = useRef(false)
   const initialIds = useRef<Set<number>>(new Set())
@@ -457,12 +459,13 @@ export function Thread({ thread }: { thread: string }) {
         const t = await team.thread(thread, last.current)
         if (stop) return
         setReq(t.request)
+        setCanPost(t.can_post !== false)
         if (!loadedOnce.current) { t.messages.forEach((m) => initialIds.current.add(m.id)); loadedOnce.current = true }
         if (t.messages.length) {
           last.current = Math.max(last.current, t.messages[t.messages.length - 1].id)
           setMsgs((m) => { const seen = new Set(m.map((x) => x.id)); return [...m, ...t.messages.filter((x) => !seen.has(x.id))] }) // overlapping polls
         }
-      } catch { /* keep polling */ }
+      } catch (e) { if (String(e).includes('404')) setMissing(true) /* else keep polling */ }
     }
     poll()
     const id = setInterval(poll, 2000)
@@ -524,6 +527,15 @@ export function Thread({ thread }: { thread: string }) {
 
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: loadedOnce.current ? 'smooth' : 'auto' }) }, [items.length, req?.state])
 
+  if (missing) {
+    return (
+      <div className="msg-in mx-auto flex h-full max-w-md flex-col items-center justify-center gap-2 px-6 text-center">
+        <h1 className="text-[16px] font-semibold">Thread not found</h1>
+        <p className="text-[13.5px]" style={{ color: 'var(--muted)' }}>It doesn't exist, or it belongs to a repository your GitHub account can't read.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full min-h-0">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -540,7 +552,12 @@ export function Thread({ thread }: { thread: string }) {
             {req && isTask && !docked && <div className="pt-2"><Lifecycle req={req} events={events} inline /></div>}
           </div>
         </div>
-        {req?.state !== 'planning' && msgs.length > 0 && <FollowUp thread={thread} req={req} />}
+        {req?.state !== 'planning' && msgs.length > 0 && canPost && <FollowUp thread={thread} req={req} />}
+        {!canPost && req && (
+          <p className="mx-auto w-full max-w-[860px] px-6 pt-2 pb-6 text-[12.5px]" style={{ color: 'var(--dim)' }}>
+            You're viewing @{req.requester_login}'s request. Only they can message this thread; you can review the plan{req.state === 'awaiting_approval' ? ' and approve it if you have write access' : ''}, or comment on the PR on GitHub.
+          </p>
+        )}
       </div>
       {docked && req && isTask && <Lifecycle req={req} events={events} />}
     </div>

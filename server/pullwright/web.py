@@ -94,6 +94,33 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
     def chat_user(user: dict[str, Any]) -> ChatUser:
         return ChatUser("web", user["login"], user.get("name") or user["login"], user["login"])
 
+    # --- who may see what -------------------------------------------------------------------------
+    # A request is visible to the person who made it and to anyone GitHub lets read its repository. Revising or
+    # cancelling a plan takes the requester or write access; approving always takes write access (intake).
+    perms: dict[tuple[str, str], tuple[str, float]] = {}
+    PERM_TTL_S = 300
+
+    def permission(repo: str, login: str) -> str:
+        hit = perms.get((repo, login))
+        if hit and time.time() - hit[1] < PERM_TTL_S:
+            return hit[0]
+        gh = getattr(intake, "gh", None)
+        try:
+            p = gh.permission(repo, login) if gh is not None and repo else "none"
+        except Exception:
+            return "none"  # fail closed, and don't cache a GitHub hiccup
+        perms[(repo, login)] = (p, time.time())
+        return p
+
+    def owns(u: dict[str, Any], req: dict[str, Any]) -> bool:
+        return req.get("requester_login") == u["login"]
+
+    def can_see(u: dict[str, Any], req: dict[str, Any] | None) -> bool:
+        return req is not None and (owns(u, req) or permission(req.get("repo", ""), u["login"]) != "none")
+
+    def can_steer(u: dict[str, Any], req: dict[str, Any]) -> bool:
+        return owns(u, req) or permission(req.get("repo", ""), u["login"]) in ("admin", "maintain", "write")
+
     # --- login ----------------------------------------------------------------------------------
 
     @a.get("/auth/github/login")
@@ -164,10 +191,13 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
 
     @r.get("/threads/{thread}")
     def thread_messages(thread: str, request: Request, after: int = 0) -> dict[str, Any]:
-        me(request)
-        msgs = store.messages(thread, after)
+        u = me(request)
         req = next((x for x in store.requests(None, 500) if x["thread_ref"].get("thread") == thread), None)
-        return {"request": req, "messages": msgs}
+        first = next(iter(store.messages(thread)), None)
+        started_it = first is not None and first["body"].get("login") == u["login"]
+        if not started_it and not can_see(u, req):
+            raise HTTPException(404, "no such thread")  # 404, not 403: don't confirm the thread exists
+        return {"request": req, "messages": store.messages(thread, after), "can_post": started_it}
 
     @r.post("/requests/{rid}/decision")
     def decide(rid: str, body: DecisionBody, request: Request) -> dict[str, str]:
@@ -175,8 +205,10 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         if body.decision not in ("approve", "revise", "cancel"):
             raise HTTPException(422, "decision must be approve, revise or cancel")
         req = store.request(rid)
-        if req is None:
+        if req is None or not can_see(u, req):
             raise HTTPException(404, "no such request")
+        if body.decision != "approve" and not can_steer(u, req):  # approve: intake checks write access itself
+            raise HTTPException(403, f"only the requester or people with write access to {req['repo']} can {body.decision} this plan")
         msg = intake.on_decision(Decision(rid, body.decision, chat_user(u), body.feedback))  # type: ignore[arg-type]
         if req["channel"] == "web":
             store.add_message(req["thread_ref"]["thread"], "user", {"text": f"{body.decision}" + (f": {body.feedback}" if body.feedback else ""), "login": u["login"]})
@@ -196,15 +228,15 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
 
     @r.get("/queue")
     def queue(request: Request) -> list[dict[str, Any]]:
-        me(request)
-        return [x for x in store.requests(None, 500) if x["state"] in ("queued", "working", "pr_open", "pr_draft", "failed")]
+        u = me(request)
+        return [x for x in store.requests(None, 500) if x["state"] in ("queued", "working", "pr_open", "pr_draft", "failed") and can_see(u, x)]
 
     @r.get("/requests/{rid}/activity")
     def request_activity(rid: str, request: Request, after: int = 0) -> dict[str, Any]:
         """Planning and runner progress for one request: states, check results, agents, tool calls, usage."""
-        me(request)
+        u = me(request)
         req = store.request(rid)
-        if req is None:
+        if req is None or not can_see(u, req):
             raise HTTPException(404, "no such request")
         return {"request": req, "events": store.activity(rid, after)}
 

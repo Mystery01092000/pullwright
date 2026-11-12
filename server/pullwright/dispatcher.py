@@ -78,6 +78,7 @@ class Dispatcher:
     ledger: Ledger | None = None  # with proxy_url: runners reach models through the control plane's LLM proxy
     proxy_url: str = os.environ.get("PULLWRIGHT_LLM_PROXY_URL", "")  # the proxy as a runner reaches it, e.g. http://host.docker.internal:8765/llm
     spend: dict[str, dict[str, Any]] = field(default_factory=dict)  # job.key -> the proxy's record of its last run
+    _crashes: dict[str, int] = field(default_factory=dict)  # feedback job.key -> crashes in a row
 
     def _env(self, key: str) -> dict[str, str]:
         proxy = None
@@ -136,15 +137,32 @@ class Dispatcher:
     def next_job(self) -> Job | None:
         return self.feedback_job() or self.issue_job()
 
+    FEEDBACK_CRASH_RETRIES = 2
+
+    def _crashed(self, job: Job, exit_code: int | None) -> None:
+        """A runner that died before reporting. An issue is marked failed. A PR goes back to pr-open, so the feedback
+        loop tries again (the work log was not written, so the comments are still pending), unless its follow-ups
+        crashed FEEDBACK_CRASH_RETRIES times in a row: then it is marked failed and waits for a person."""
+        if job.kind == "feedback":
+            n = self._crashes[job.key] = self._crashes.get(job.key, 0) + 1
+            if n <= self.FEEDBACK_CRASH_RETRIES:
+                log.warning("feedback job %s crashed (exit %s), retry %d of %d", job.key, exit_code, n, self.FEEDBACK_CRASH_RETRIES)
+                issues.set_state(self.gh, job.repo, job.issue, issues.PR_OPEN)
+                return
+            self._crashes.pop(job.key, None)
+        issues.set_state(self.gh, job.repo, job.issue, issues.FAILED)
+        self.gh.comment(job.repo, job.issue, f"The runner exited with code {exit_code} before finishing.")
+
     def _run(self, job: Job) -> None:
         try:
             handle = self.runner.start(job)
             outcome = follow(handle, on_event=(lambda ev: self.on_event(job, ev)) if self.on_event else None,
                              on_log=lambda line: log.info("[%s] %s", job.ref, line))
             outcome.spend = self._settle(job)
-            if outcome.result is None:  # crashed before it could report: make sure nothing stays "working"
-                issues.set_state(self.gh, job.repo, job.issue, issues.FAILED)
-                self.gh.comment(job.repo, job.issue, f"The runner exited with code {outcome.exit_code} before finishing.")
+            if outcome.result is None:  # crashed before it could report: make sure nothing stays "working" or "revising"
+                self._crashed(job, outcome.exit_code)
+            else:
+                self._crashes.pop(job.key, None)
             if self.on_done is not None:
                 self.on_done(job, outcome)
         except Exception:

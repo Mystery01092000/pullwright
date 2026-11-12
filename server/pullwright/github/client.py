@@ -106,10 +106,29 @@ class GitHub:
                     return ""
         return self._bot_login
 
+    RETRY_STATUS = frozenset({500, 502, 503, 504})
+    RETRY_DELAYS = (1.0, 3.0, 8.0)
+
     def _req(self, method: str, repo: str, path: str, **kw: Any) -> Any:
-        r = self.http.request(method, f"/repos/{repo}{path}", headers={"Authorization": f"Bearer {self.auth.token(repo)}"}, **kw)
-        _raise(r)
-        return r.json() if r.content else None
+        """One REST call. GitHub's transient 5xx answers and dropped connections are retried, except for a POST that
+        creates something (a comment, an issue, a PR): a 502 there may still have created it, and a second one would
+        be a duplicate. Labels, reads, updates and deletes are safe to repeat."""
+        creates = method == "POST" and not path.endswith("/labels")
+        for attempt in range(len(self.RETRY_DELAYS) + 1):
+            last = attempt == len(self.RETRY_DELAYS) or creates
+            try:
+                r = self.http.request(method, f"/repos/{repo}{path}", headers={"Authorization": f"Bearer {self.auth.token(repo)}"}, **kw)
+            except httpx.TransportError:
+                if last:
+                    raise
+                time.sleep(self.RETRY_DELAYS[attempt])
+                continue
+            if r.status_code in self.RETRY_STATUS and not last:
+                time.sleep(self.RETRY_DELAYS[attempt])
+                continue
+            _raise(r)
+            return r.json() if r.content else None
+        raise AssertionError("unreachable")
 
     # issues
     def create_issue(self, repo: str, title: str, body: str, labels: list[str], assignees: list[str] | None = None) -> dict[str, Any]:

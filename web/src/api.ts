@@ -135,7 +135,7 @@ export const team = {
   logout: () => j<{ ok: true }>(fetch('/auth/logout', { method: 'POST' })),
   requests: () => j<RequestRow[]>(fetch(`${BASE}/requests`)),
   create: (repo: string, task: string, thread = '') => j<{ thread: string; request_id: string | null }>(fetch(`${BASE}/requests`, json({ repo, task, thread }))),
-  thread: (thread: string, after = 0) => j<{ request: RequestRow | null; messages: ThreadMessage[] }>(fetch(`${BASE}/threads/${thread}?after=${after}`)),
+  thread: (thread: string, after = 0) => j<{ request: RequestRow | null; messages: ThreadMessage[]; can_post?: boolean }>(fetch(`${BASE}/threads/${thread}?after=${after}`)),
   decide: (id: string, decision: 'approve' | 'revise' | 'cancel', feedback = '') =>
     j<{ message: string }>(fetch(`${BASE}/requests/${id}/decision`, json({ decision, feedback }))),
   queue: () => j<RequestRow[]>(fetch(`${BASE}/queue`)),

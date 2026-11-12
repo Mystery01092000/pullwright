@@ -179,3 +179,33 @@ def test_docker_command_keeps_secrets_off_the_command_line():
     assert ["-e", "PULLWRIGHT_GITHUB_TOKEN"] == argv[argv.index("PULLWRIGHT_GITHUB_TOKEN") - 1: argv.index("PULLWRIGHT_GITHUB_TOKEN") + 1]
     assert "--user" in argv and "1000:1000" in argv and "--rm" in argv and "no-new-privileges" in argv
     assert argv[-4:] == ["timeout", "90m", "pullwright-work", "arcane/app#7"]
+
+
+def test_crashed_feedback_run_puts_the_pr_back_for_a_retry_then_gives_up():
+    d, fake, gh = _dispatcher(ScriptedRunner(crash=True))
+    number = _queue_issue(gh)
+    job = Job("arcane/app", number, "tok", {}, kind="feedback")
+    for _ in range(d.FEEDBACK_CRASH_RETRIES):
+        d._crashed(job, 1)
+        assert fake.issues[number]["labels"] == ["pullwright", "pullwright:pr-open"]  # the feedback loop retries
+    d._crashed(job, 1)
+    assert fake.issues[number]["labels"] == ["pullwright", "pullwright:failed"]
+    assert "exited with code 1 before finishing" in fake.comments[-1][1]
+
+
+def test_github_client_retries_transient_errors_but_not_creating_posts(monkeypatch):
+    monkeypatch.setattr(GitHub, "RETRY_DELAYS", (0.0, 0.0, 0.0))
+    calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(f"{req.method} {req.url.path}")
+        if len([c for c in calls if c == f"{req.method} {req.url.path}"]) < 3:
+            return httpx.Response(502, json={"message": "Server Error"})
+        return httpx.Response(200, json=[])
+
+    gh = GitHub(PatAuth("tok"), http=httpx.Client(base_url=API, transport=httpx.MockTransport(handler)))
+    gh.add_labels("arcane/app", 1, ["x"])  # labels: safe to repeat, so retried until it works
+    assert calls.count("POST /repos/arcane/app/issues/1/labels") == 3
+    with pytest.raises(Exception, match="502"):
+        gh.comment("arcane/app", 1, "hi")  # a comment may already exist after a 502: never posted twice
+    assert calls.count("POST /repos/arcane/app/issues/1/comments") == 1

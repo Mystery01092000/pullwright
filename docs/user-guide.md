@@ -128,7 +128,7 @@ Use the buttons, or just talk in the message box under the thread while the plan
 - ask for changes (*"also cover negative amounts"*): a new revision is drafted;
 - *approve*, *lgtm*, *looks good*, *go ahead*: approves; *cancel*: stops; *revise: ...*: revises with what follows.
 
-Approving, by button or by text, needs write access to the repository and opens the issue. While the runner works, the message box still takes questions; ask for further changes on the PR, or start a new thread for a separate task.
+Approving, by button or by text, needs write access to the repository and opens the issue. Who sees a thread: the person who started it, and anyone whose GitHub account can read the repository (they see the plan, the activity and the PR, but only the requester can message the thread). Revise and Cancel take the requester or write access. While the runner works, the message box still takes questions; ask for further changes on the PR, or start a new thread for a separate task.
 
 ### Follow the work
 
@@ -208,7 +208,7 @@ Per repository, a `.pullwright/` folder can override agents, add skills, hooks, 
 | Approved, but nothing starts | Docker isn't running, the runner image is missing (`docker images`), or the App isn't installed on the repository. The server log shows the dispatcher's error. |
 | The runner fails at once with model errors | The image is older than the server code: rebuild it. With the proxy on, check that `PULLWRIGHT_LLM_PROXY_URL` is reachable from a container (`host.docker.internal`; Docker on Linux needs the host-gateway mapping, which Pullwright adds). |
 | Checks never pass | Pullwright guessed the wrong commands. Add `.pullwright/checks.json` to the repository ([configuration.md](configuration.md#checksjson)). |
-| A review comment did nothing | Wait out the quiet period (120 seconds by default). The comment must come from someone with write access, and must mention `@pullwright` if `PULLWRIGHT_FEEDBACK_TRIGGER=mention`. |
+| A review comment did nothing | Wait out the quiet period (120 seconds by default), plus up to 30 seconds for the next poll. If the PR is stuck on `pullwright:revising` with no runner, a follow-up crashed; Pullwright now puts it back to `pullwright:pr-open` and retries twice by itself. The comment must come from someone with write access, and must mention `@pullwright` if `PULLWRIGHT_FEEDBACK_TRIGGER=mention`. |
 | A model shows as unpriced | Add it to `PULLWRIGHT_PRICES` or to the provider's `prices` in `PULLWRIGHT_PROVIDERS`. |
 | The server won't start with `PULLWRIGHT_ORG_CONFIG` set | The shared repository couldn't be read: install the App on it, or set `PULLWRIGHT_ORG_CONFIG_READ_TOKEN`. Starting without the shared rules is refused on purpose. |
 | Port 8765 is in use | Another server is running. Stop it, or set `PULLWRIGHT_PORT` and update `PULLWRIGHT_PUBLIC_URL` and the OAuth callback. |

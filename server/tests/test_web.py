@@ -128,3 +128,40 @@ def test_a_thread_without_a_live_task_takes_another_message():
     assert again["thread"] == t["thread"] and [m["body"]["text"] for m in store.messages(t["thread"])] == ["other/repo: x", "arcane/app: y"]
     c.cookies.set(COOKIE, signer.dumps({"login": "vik", "name": "Vik"}, 3600))
     assert c.post("/api/requests", json={"task": "z", "thread": t["thread"]}).status_code == 404  # not their thread
+
+
+class _Perms:
+    """GitHub permissions for the access tests: login -> role on every repository."""
+    def __init__(self, roles):
+        self.roles = roles
+
+    def permission(self, repo, login):
+        return self.roles.get(login, "none")
+
+
+def test_threads_are_visible_to_the_requester_and_repo_readers_only():
+    c, intake, store, signer = _client()
+    _logged_in(c, signer)  # asha makes the request
+    r = c.post("/api/requests", json={"repo": "arcane/app", "task": "add hello"}).json()
+    intake.gh = _Perms({"ravi": "read", "mei": "write"})
+    assert c.get(f"/api/threads/{r['thread']}").json()["can_post"] is True
+
+    def as_(login):
+        c.cookies.set(COOKIE, signer.dumps({"login": login, "name": login}, 3600))
+
+    as_("eve")  # no access to arcane/app: the thread does not exist for her
+    assert c.get(f"/api/threads/{r['thread']}").status_code == 404
+    assert c.get("/api/requests/r1/activity").status_code == 404
+    assert c.post("/api/requests/r1/decision", json={"decision": "cancel"}).status_code == 404
+    assert c.get("/api/queue").json() == [] or all(x["id"] != "r1" for x in c.get("/api/queue").json())
+
+    as_("ravi")  # can read the repository: sees the thread, can't post to it or cancel the plan
+    t = c.get(f"/api/threads/{r['thread']}").json()
+    assert t["request"]["id"] == "r1" and t["can_post"] is False
+    assert c.get("/api/requests/r1/activity").status_code == 200
+    assert c.post("/api/requests/r1/decision", json={"decision": "cancel"}).status_code == 403
+    assert not intake.decisions
+
+    as_("mei")  # write access: may revise or cancel
+    assert c.post("/api/requests/r1/decision", json={"decision": "revise", "feedback": "smaller"}).status_code == 200
+    assert intake.decisions[-1].user.github_login == "mei"
