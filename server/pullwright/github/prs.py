@@ -5,6 +5,7 @@ import re
 from typing import Any
 
 from .. import checks as checks_mod
+from ..costs import markdown as costs_md
 from ..pipeline.work import WorkResult
 from .client import GitHub, GitHubError
 from .issues import FAILED, LABEL, PR_OPEN, IssueTask, set_state
@@ -23,7 +24,10 @@ def render_body(task: IssueTask, result: WorkResult) -> str:
         lines += ["", f"<sub>Evidence: {result.diagnosis['evidence']}</sub>"]
     if result.error:
         lines += ["", "### Why it stopped", "", f"```\n{result.error[:3000]}\n```"]
-    lines += ["", f"<sub>Implemented by Pullwright: {result.rounds} round(s), ${result.cost_usd:.2f}. Haiku workers, Sonnet supervisor and reviewer.</sub>"]
+    if result.costs:
+        lines += ["", *costs_md(result.costs, "Implementation cost")]
+    models = ", ".join(f"`{m}`" for m in (result.costs or {}).get("by_model", {})) or "no model calls"
+    lines += ["", f"<sub>Implemented by Pullwright: {result.rounds} round(s), ${result.cost_usd:.2f}. Models: {models}.</sub>"]
     return "\n".join(lines)
 
 

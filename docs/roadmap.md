@@ -23,7 +23,7 @@ Done means implemented, tested with the scripted model and fake GitHub, and docu
 - [x] **Any provider per role**: OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, Ollama and custom OpenAI-compatible servers
 - [ ] **Planning and issue evals** with cost and pass rate per issue; nightly eval workflow
 - [ ] Follow-ups on a PR: `@pullwright` in a PR review comment sends the runner back with the review as the brief
-- [ ] Post a cost breakdown per stage on the PR, and show it in a web cost view
+- [x] Post a cost breakdown per stage on the PR, and show it in a web cost view
 - [ ] Postgres option for the control plane store
 - [ ] Publish the runner image to GHCR from CI on tagged releases
 

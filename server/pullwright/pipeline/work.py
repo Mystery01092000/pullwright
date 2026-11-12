@@ -58,6 +58,7 @@ class WorkResult:
     report: str = ""  # the supervisor's last report
     cost_usd: float = 0.0
     error: str = ""
+    costs: dict[str, Any] = field(default_factory=dict)  # costs.CostMeter breakdown
 
     @property
     def green(self) -> bool:
@@ -170,6 +171,7 @@ class WorkRun:
             message = self.commit_message or f"{self.w.title} (#{self.w.issue_number})"
             result.commit = git.commit_all(self.s.cwd, f"{message}\n\nPullwright: {verdict}.")
         result.cost_usd = self.s.cost_usd
+        result.costs = self.s.meter.to_dict()
         self.s.emit("state", state=result.status, rounds=result.rounds, commit=result.commit, cost_usd=result.cost_usd)
         return result
 

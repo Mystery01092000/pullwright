@@ -127,9 +127,16 @@ def test_mention_plans_waits_for_approval_and_opens_the_issue(setup):
     assert store.request(rid)["state"] == "queued"
     intake.on_job_event("arcane/app", 1, {"type": "state", "payload": {"state": "setup"}})
     assert store.request(rid)["state"] == "working"  # the web Queue shows the runner on it
-    intake.on_job_done("arcane/app", 1, {"status": "green", "pr_url": "https://github.com/arcane/app/pull/100"})
+    planned = store.request(rid)
+    assert planned["costs"]["by_stage"]["plan"]["calls"] >= 2 and planned["costs"]["runs"][0]["kind"] == "plan"
+    work = {"total_usd": 0.25, "calls": 3, "by_stage": {"work": {"cost_usd": 0.25, "calls": 3, "input_tokens": 1, "output_tokens": 1}},
+            "by_model": {}, "unpriced": []}
+    intake.on_job_done("arcane/app", 1, {"status": "green", "pr_url": "https://github.com/arcane/app/pull/100", "cost_usd": 0.25, "costs": work},
+                       {"spent_usd": 0.25, "calls": 3, "by_model": {}})
     assert "Pull request for #1: https://github.com/arcane/app/pull/100. All checks pass" in ch.replies[-1][1]
-    assert store.request(rid)["state"] == "pr_open"
+    done = store.request(rid)
+    assert done["state"] == "pr_open" and abs(done["cost_usd"] - (planned["cost_usd"] + 0.25)) < 1e-9
+    assert done["costs"]["runs"][-1] == {**done["costs"]["runs"][-1], "kind": "issue", "status": "green", "proxy_usd": 0.25}
 
 
 def test_several_tasks_from_one_chat_are_separate_requests(setup):

@@ -12,7 +12,7 @@ Pullwright is built to make the expensive model do little and the cheap model do
 | Review | diagnosis | Claude Sonnet 5.5 | $2 / $10 | one pass over the diff per green round |
 | Checks | (commands) | none | $0 | tests, lint and type checks never call a model |
 
-Every model call records its input, output, cache-write and cache-read tokens and a dollar figure (`pricing.py`). Totals appear on the plan card (planning), in the issue body (planning), in the PR body (implementation), in the web Queue view, and per agent in the trace view.
+Every model call records its input, output, cache-write and cache-read tokens and a dollar figure (`pricing.py`). Every call is also charged to a **stage**: planning (describer, verifier), implementation (supervisor, workers) or review (diagnosis, summarizer). It is charged to the model that answered as well. That breakdown appears in the PR body and in each work-log comment as a table. It also accumulates per request (planning plus every runner job, including review follow-ups) and shows in the web **Costs** view: totals per stage, model, repository, requester and day, and the costliest requests (`GET /api/costs?days=30`). With the [LLM proxy](providers.md#the-llm-proxy-no-provider-key-in-a-runner), each job also carries the proxy's own count (`proxy_usd`), which a runner cannot alter.
 
 ## The controls
 

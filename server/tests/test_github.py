@@ -61,7 +61,11 @@ def _result(green: bool) -> WorkResult:
     check = CheckResult("test", "pytest -q", 0 if green else 1, 2.0, "1 passed" if green else "E assert 1 == 2\n1 failed")
     diag = {"complete": True, "gaps": [], "evidence": "read diff"} if green else None
     return WorkResult(status="green" if green else "failed", rounds=2, branch="pullwright/1-add-hello", commit="abc123",
-                      checks=[check], diagnosis=diag, report="Added hello() in app.py.", cost_usd=0.31)
+                      checks=[check], diagnosis=diag, report="Added hello() in app.py.", cost_usd=0.31,
+                      costs={"total_usd": 0.31, "calls": 5, "unpriced": [],
+                             "by_stage": {"work": {"cost_usd": 0.3, "calls": 4, "input_tokens": 10, "output_tokens": 2},
+                                          "review": {"cost_usd": 0.01, "calls": 1, "input_tokens": 3, "output_tokens": 1}},
+                             "by_model": {"claude-sonnet-5-5": {"cost_usd": 0.31, "calls": 5, "input_tokens": 13, "output_tokens": 3}}})
 
 
 def test_green_run_opens_a_ready_pr_tagging_the_developer(gh):
@@ -71,6 +75,7 @@ def test_green_run_opens_a_ready_pr_tagging_the_developer(gh):
     assert pr["draft"] is False and pr["head"] == "pullwright/1-add-hello" and pr["base"] == "main"
     assert pr["body"].startswith(f"Closes #{task.number}. Ready for review, @asha.")
     assert "**test** `pytest -q`: pass" in pr["body"] and "$0.31" in pr["body"]
+    assert "| Implementation | $0.300 | 4 |" in pr["body"] and "Models: `claude-sonnet-5-5`." in pr["body"]
     assert fake.reviewers == [(pr["number"], ["asha"])]
     assert fake.issues[task.number]["labels"] == ["pullwright", "pullwright:pr-open"]
     assert fake.comments[-1] == (task.number, f"Pull request opened: {pr['html_url']}")

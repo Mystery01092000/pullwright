@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from . import costs as costs_mod
 from .events import Event
 
 SCHEMA = """
@@ -47,6 +48,8 @@ class Store:
             if "thread_id" not in [r[1] for r in self.db.execute("PRAGMA table_info(runs)")]:
                 self.db.execute("ALTER TABLE runs ADD COLUMN thread_id TEXT")
             self.db.execute("UPDATE runs SET thread_id = id WHERE thread_id IS NULL")
+            if "costs" not in [r[1] for r in self.db.execute("PRAGMA table_info(requests)")]:
+                self.db.execute("ALTER TABLE requests ADD COLUMN costs TEXT DEFAULT ''")
             self.db.commit()
 
     def create_run(self, run_id: str, task: str, cwd: str, thread_id: str | None = None) -> None:
@@ -134,7 +137,24 @@ class Store:
         d = dict(row)
         d["thread_ref"] = json.loads(d["thread_ref"] or "{}")
         d["plan"] = json.loads(d["plan"]) if d["plan"] else None
+        d["costs"] = json.loads(d["costs"]) if d.get("costs") else None
         return d
+
+    def add_request_costs(self, rid: str, breakdown: dict[str, Any] | None, run: dict[str, Any] | None = None) -> None:
+        """Add one stage's or job's breakdown to a request; `run` ({kind, status, cost_usd, proxy_usd?}) joins its run list.
+        cost_usd becomes the request's running total."""
+        with self.lock:
+            row = self.db.execute("SELECT costs FROM requests WHERE id = ?", (rid,)).fetchone()
+            if row is None:
+                return
+            cur = json.loads(row["costs"]) if row["costs"] else costs_mod.empty()
+            runs = list(cur.get("runs", []))
+            merged = costs_mod.merge(cur, breakdown)
+            if run is not None:
+                runs.append({**run, "at": time.time()})
+            merged["runs"] = runs
+            self.db.execute("UPDATE requests SET costs = ?, cost_usd = ? WHERE id = ?", (json.dumps(merged), merged["total_usd"], rid))
+            self.db.commit()
 
     def request(self, rid: str) -> dict[str, Any] | None:
         with self.lock:

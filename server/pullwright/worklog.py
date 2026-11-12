@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from .costs import markdown as costs_md
+
 _LOG = re.compile(r"<!--\s*pullwright-log:(\{.*?\})\s*-->", re.S)
 
 
@@ -33,6 +35,7 @@ class LogEntry:
     addressed: list[str] = field(default_factory=list)  # feedback ids handled by this run
     feedback: list[str] = field(default_factory=list)  # one-line summaries of the feedback this run handled
     handled_until: str = ""  # feedback created after this time is new for the next run
+    costs: dict[str, Any] = field(default_factory=dict)  # cost per stage and model
     at: str = field(default_factory=now_iso)
 
     def to_json(self) -> str:
@@ -49,6 +52,8 @@ def render(entry: LogEntry) -> str:
         lines += ["", "Addressed:"] + [f"- {f}" for f in entry.feedback]
     if entry.gaps:
         lines += ["", "Still open:"] + [f"- {g}" for g in entry.gaps]
+    if entry.costs:
+        lines += ["", *costs_md(entry.costs, "Cost of this run")]
     if entry.report:
         lines += ["", "<details><summary>What the supervisor reported</summary>", "", entry.report.strip()[:6000], "", "</details>"]
     lines += ["", "<sub>Comment on this PR to request changes; Pullwright picks up comments from people with write access.</sub>",

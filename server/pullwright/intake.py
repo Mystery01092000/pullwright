@@ -198,7 +198,8 @@ class Intake:
             run = PlanRun(session, req, _ChannelReviewer(self, rid, ch, thread))
             plan = run.run()
             issue = issues.open_issue(self.gh, plan)
-            self.store.update_request(rid, state="queued", plan=plan.spec, issue_number=issue["number"], issue_url=issue["html_url"], cost_usd=session.cost_usd)
+            self.store.update_request(rid, state="queued", plan=plan.spec, issue_number=issue["number"], issue_url=issue["html_url"])
+            self.store.add_request_costs(rid, session.meter.to_dict(), {"kind": "plan", "status": "approved", "cost_usd": session.cost_usd})
             ch.reply(thread, f"Issue opened and queued: {issue['html_url']}. A runner will pick it up and open a PR that tags @{plan.request.requester.github_login}.")
         except PlanCancelled as e:
             self.store.update_request(rid, state="cancelled", error=str(e))
@@ -218,11 +219,25 @@ class Intake:
         if req is not None and req["state"] == "queued":
             self.store.update_request(req["id"], state="working")
 
-    def on_job_done(self, repo: str, number: int, result: dict[str, Any] | None) -> None:
-        """The dispatcher finished a job: tell the thread the task came from."""
+    def on_job_done(self, repo: str, number: int, result: dict[str, Any] | None, spend: dict[str, Any] | None = None) -> None:
+        """The dispatcher finished a job: record its cost and tell the thread the task came from. `spend` is the LLM
+        proxy's own count of the job, when runners go through the proxy."""
         req = self.store.request_for_issue(repo, number)
         if req is None:
             return
+        if not (result and result.get("status") == "no_feedback"):
+            run = {"kind": (result or {}).get("kind", "issue"), "status": (result or {}).get("status", "crashed"),
+                   "cost_usd": float((result or {}).get("cost_usd", 0.0))}
+            if spend is not None:
+                run["proxy_usd"] = spend.get("spent_usd", 0.0)
+            breakdown = (result or {}).get("costs") or None
+            if breakdown is None and spend:  # crashed before reporting: the proxy's count is all there is
+                breakdown = {"total_usd": spend.get("spent_usd", 0.0), "calls": spend.get("calls", 0),
+                             "by_stage": {"other": {"cost_usd": spend.get("spent_usd", 0.0), "calls": spend.get("calls", 0),
+                                                    "input_tokens": 0, "output_tokens": 0}},
+                             "by_model": {m: {k: v[k] for k in ("cost_usd", "calls", "input_tokens", "output_tokens")}
+                                          for m, v in (spend.get("by_model") or {}).items()}}
+            self.store.add_request_costs(req["id"], breakdown, run)
         ch = self.channels.get(req["channel"])
         if result and result.get("kind") == "feedback":
             if result.get("status") == "no_feedback":

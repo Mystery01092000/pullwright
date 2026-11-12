@@ -92,6 +92,7 @@ class Plan:
     approved_by: Developer
     revisions: int
     cost_usd: float
+    costs: dict[str, Any] = field(default_factory=dict)  # costs.CostMeter breakdown
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -146,7 +147,7 @@ class PlanRun:
                         reviewer=review.reviewer.github_login if review.reviewer else "")
             if review.decision == "approve":
                 self.s.emit("state", state="approved")
-                return Plan(self.request, spec, verification, review.reviewer or self.request.requester, revision, self.s.cost_usd)
+                return Plan(self.request, spec, verification, review.reviewer or self.request.requester, revision, self.s.cost_usd, self.s.meter.to_dict())
             if review.decision == "cancel":
                 self.s.emit("state", state="cancelled")
                 raise PlanCancelled(review.feedback or "cancelled by the developer")

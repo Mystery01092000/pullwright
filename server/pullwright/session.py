@@ -14,6 +14,7 @@ from typing import Any
 
 from .agent import AgentDef, RunResult, run_agent
 from .config import HarnessConfig, load_config
+from .costs import CostMeter
 from .events import Event, EventBus
 from .models import MAIN_MODEL, WORKER_MODEL, role_model
 from .tools import TOOLS, ToolContext, ToolError
@@ -43,10 +44,12 @@ class Session:
     cost_usd: float = 0.0
     state_hooks: bool = True  # run `state` hooks; lifecycle.Run fires its own
     _workers: int = 0
+    meter: CostMeter = field(default_factory=CostMeter)  # cost per stage and model
 
     def __post_init__(self) -> None:
         self.cfg = self.cfg or load_config(self.cwd)
         self.bus.subscribe(self._track_cost)
+        self.bus.subscribe(self.meter)
         if self.state_hooks and any(h.event == "state" for h in self.cfg.hooks):
             self.bus.subscribe(self._state_hooks)
 

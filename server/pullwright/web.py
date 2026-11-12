@@ -189,6 +189,16 @@ def build_router(intake: Any, store: Any, signer: Signer, teams: TeamsChannel | 
         me(request)
         return [x for x in store.requests(None, 500) if x["state"] in ("queued", "working", "pr_open", "pr_draft", "failed")]
 
+    @r.get("/costs")
+    def cost_summary(request: Request, days: int = 30) -> dict[str, Any]:
+        """Spend over the last `days` days: per stage, model, repository, requester and day, and the costliest requests."""
+        import time as _time
+
+        from .costs import summarize
+
+        me(request)
+        return {"days": days, **summarize(store.requests(None, 5000), since=_time.time() - days * 86400 if days > 0 else 0.0)}
+
     # --- Teams webhook --------------------------------------------------------------------------
 
     @r.post("/teams/messages")

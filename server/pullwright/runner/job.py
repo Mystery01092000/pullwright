@@ -19,7 +19,7 @@ import os
 import sys
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,7 @@ class JobResult:
     kind: str = "issue"  # issue | feedback
     pr: int | None = None
     addressed: int = 0  # feedback items handled (feedback jobs)
+    costs: dict[str, Any] = field(default_factory=dict)  # costs.CostMeter breakdown of this job
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -82,13 +83,14 @@ def run_job(repo: str, number: int, gh: GitHub, client: Any, workdir: Path, *, b
             issues.set_state(gh, repo, number, issues.FAILED)
             reason = result.error or "the agents made no changes"
             gh.comment(repo, number, f"Pullwright stopped without changes ({result.status}): {reason[:1500]}")
-            return JobResult(repo, number, result.status, branch=result.branch, cost_usd=result.cost_usd, rounds=result.rounds, error=reason)
+            return JobResult(repo, number, result.status, branch=result.branch, cost_usd=result.cost_usd, rounds=result.rounds, error=reason,
+                             costs=result.costs)
         git.push(dest, gh.clone_url(repo), result.branch)
         pr = prs.open_pr(gh, task, result)
         gh.comment(repo, pr["number"], worklog.render(_log_entry("issue", result, handled_until=worklog.now_iso())))
         log(f"opened {pr['html_url']} ({result.status}, ${result.cost_usd:.2f})")
         return JobResult(repo, number, result.status, pr["html_url"], result.branch, result.cost_usd, result.rounds, result.error,
-                         pr=pr["number"])
+                         pr=pr["number"], costs=result.costs)
     except Exception as e:  # anything unexpected: leave the issue marked, never silently "working"
         issues.set_state(gh, repo, number, issues.FAILED)
         gh.comment(repo, number, f"The Pullwright runner failed: {type(e).__name__}: {str(e)[:1500]}")
@@ -101,7 +103,7 @@ def _log_entry(kind: str, result: Any, handled_until: str, addressed: list[str] 
         kind=kind, status=result.status, rounds=result.rounds, commit=result.commit, cost_usd=round(result.cost_usd, 4),
         report=result.report, checks=[{"name": c.name, "ok": c.ok} for c in result.checks],
         gaps=list((result.diagnosis or {}).get("gaps", [])) if result.diagnosis else [],
-        addressed=addressed or [], feedback=feedback or [], handled_until=handled_until)
+        addressed=addressed or [], feedback=feedback or [], handled_until=handled_until, costs=result.costs)
 
 
 def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Path, *, bus: EventBus | None = None,
@@ -146,7 +148,7 @@ def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Pa
         issues.set_state(gh, repo, pr_number, issues.PR_OPEN if result.green else issues.FAILED)
         log(f"feedback on {pr['html_url']}: {result.status}, ${result.cost_usd:.2f}")
         return JobResult(repo, issue_number, result.status, pr["html_url"], branch, result.cost_usd, result.rounds, result.error,
-                         kind="feedback", pr=pr_number, addressed=len(items))
+                         kind="feedback", pr=pr_number, addressed=len(items), costs=result.costs)
     except Exception as e:
         issues.set_state(gh, repo, pr_number, issues.FAILED)
         gh.comment(repo, pr_number, f"The Pullwright runner failed on this feedback: {type(e).__name__}: {str(e)[:1500]}")
