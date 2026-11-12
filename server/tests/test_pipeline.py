@@ -68,7 +68,7 @@ def test_plan_describer_then_verifier_then_developer_approval(repo: Path):
     # read-only: neither planning agent can write or run commands
     for call in client.calls:
         names = {t["name"] for t in call["tools"]}
-        assert names <= {"read_file", "glob", "grep"}
+        assert names <= {"read_file", "glob", "grep", "git_log", "git_show"}  # read-only
     assert reviewer.seen[0][1]["approved"] is True
 
 

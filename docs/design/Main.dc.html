@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pullwright thread</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0a0a0a}
+a{color:#ededed;text-decoration:underline;text-decoration-color:rgba(237,237,237,.3);text-underline-offset:2px}a:hover{text-decoration-color:rgba(237,237,237,.7)}
+</style>
+</helmet>
+<div style="min-height: 1500px; background: #0a0a0a; color: #ededed; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 22px; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <!-- ═══ sidebar: a shade, not a box ═══ -->
+  <nav aria-label="Requests" style="flex: 1 1 248px; max-width: 264px; min-width: 228px; background: #0f0f0f; display: flex; flex-direction: column; padding: 14px 10px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px">
+      <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 7px; background: #ededed; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 2px; background: #0a0a0a; display: block"></span></span>
+      <span style="font-weight: 600; font-size: 14px; letter-spacing: -0.01em">Pullwright</span>
+      <button type="button" aria-label="New request" style="margin-left: auto; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: #1c1c1c; border: 0; color: #d4d4d4; cursor: pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+
+    <div role="tablist" aria-label="Views" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 10px; background: #171717; margin: 0 4px 12px">
+      <button type="button" role="tab" aria-selected="true" style="height: 28px; border-radius: 7px; background: #262626; color: #ededed; border: 0; font: 500 12px Inter, sans-serif; cursor: pointer">Requests</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 28px; border-radius: 7px; background: transparent; color: #8a8a8a; border: 0; font: 500 12px Inter, sans-serif; cursor: pointer">Queue</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 28px; border-radius: 7px; background: transparent; color: #8a8a8a; border: 0; font: 500 12px Inter, sans-serif; cursor: pointer">Costs</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 28px; border-radius: 7px; background: transparent; color: #8a8a8a; border: 0; font: 500 12px Inter, sans-serif; cursor: pointer">Local</button>
+    </div>
+
+    <div style="position: relative; margin: 0 4px 10px">
+      <label for="search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search requests</label>
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" style="position: absolute; left: 10px; top: 9px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input id="search" type="search" placeholder="Search" style="width: 100%; box-sizing: border-box; height: 32px; padding: 0 10px 0 30px; border-radius: 8px; background: #171717; border: 0; color: #ededed; font: 12.5px Inter, sans-serif">
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <a href="#" style="display: block; padding: 8px 12px; border-radius: 8px; background: #1c1c1c; color: #ededed; text-decoration: none">
+        <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Build financial calculators</div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 18px; color: #737373"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #34d399; display: block"></span>PR open<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace">$1.38</span></div>
+      </a>
+      <a href="#" style="display: block; padding: 8px 12px; border-radius: 8px; color: #a3a3a3; text-decoration: none">
+        <div style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Create a small Go + Gin API</div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 18px; color: #737373"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #34d399; display: block"></span>PR open<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace">$0.63</span></div>
+      </a>
+      <a href="#" style="display: block; padding: 8px 12px; border-radius: 8px; color: #a3a3a3; text-decoration: none">
+        <div style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add a /health endpoint</div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 18px; color: #737373"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #fbbf24; display: block"></span>Runner working<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace">$0.31</span></div>
+      </a>
+      <a href="#" style="display: block; padding: 8px 12px; border-radius: 8px; color: #a3a3a3; text-decoration: none">
+        <div style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Summary of the project</div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 18px; color: #737373"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #525252; display: block"></span>Answered<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace">$0.04</span></div>
+      </a>
+    </div>
+
+    <div style="margin-top: auto; padding: 10px 8px 2px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #8a8a8a">
+      <span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 9999px; background: #262626; color: #ededed; display: grid; place-items: center; font-size: 10px; font-weight: 600">PT</span>Mystery01092000
+      <button type="button" style="margin-left: auto; background: transparent; border: 0; color: #737373; font: 12px Inter, sans-serif; cursor: pointer">Log out</button>
+    </div>
+  </nav>
+
+  <!-- ═══ thread ═══ -->
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 10px; padding: 18px 32px 6px; flex-wrap: wrap">
+      <h1 style="margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -0.01em">Build financial calculators</h1>
+      <span style="font: 12px 'JetBrains Mono', monospace; color: #737373">arcanetech-ai/fincalc-goose</span>
+      <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 9999px; background: #171717; font-size: 12px; color: #a3a3a3"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #34d399; display: block"></span>PR #2 open</span>
+    </header>
+
+    <div style="flex: 1; width: 100%; max-width: 700px; box-sizing: border-box; margin: 0 auto; padding: 32px 24px 16px; display: flex; flex-direction: column; gap: 28px">
+
+      <!-- user prompt -->
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+        <div style="max-width: 80%; border-radius: 18px; background: #262626; padding: 10px 16px; font-size: 14px; line-height: 22px">Build financial calculators with a Go + Gin backend and a React + TypeScript frontend: SIP, lumpsum and EMI, with a theme switch and tests.</div>
+        <time style="font-size: 11.5px; color: #525252; padding-right: 6px">1:19 AM</time>
+      </div>
+
+      <!-- pullwright: planning -->
+      <section aria-label="Pullwright, planning" style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #737373; margin-bottom: 2px">
+          <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 6px; background: #ededed; display: grid; place-items: center"><span style="width: 6px; height: 6px; border-radius: 2px; background: #0a0a0a; display: block"></span></span>
+          <span style="color: #a3a3a3; font-weight: 500">Pullwright</span><time>1:21 AM</time>
+        </div>
+
+        <button type="button" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 26px; padding: 0; background: transparent; border: 0; color: #8a8a8a; font: 12px/18px Inter, sans-serif; text-align: left; cursor: pointer">
+          <span aria-hidden="true" style="width: 22px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
+          read 6 files · searched 2 times · thought it through
+        </button>
+
+        <div style="display: flex; flex-direction: column; padding-top: 2px">
+          <div style="position: relative; height: 32px; display: flex; align-items: center">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="-10" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="32" stroke="#404040" stroke-width="1"></line></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Thought process <span style="font: 11px 'JetBrains Mono', monospace; color: #525252; margin-left: 4px">6.4s</span></span>
+          </div>
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="32" stroke="#404040" stroke-width="1"></line></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M16 13H8M16 17H8"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Read</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px 0 1px; border-radius: 5px; background: #1f1f1f; font-size: 12px; color: #d4d4d4"><span style="width: 20px; height: 20px; border-radius: 4px; background: #0a0a0a; display: grid; place-items: center"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg></span>README.md</span>
+          </div>
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="32" stroke="#404040" stroke-width="1"></line></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Search</span>
+            <span style="font-size: 12px; color: #d4d4d4">checks.json in .pullwright</span>
+          </div>
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M9 12l2 2 4-4"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Verify</span>
+            <span style="font-size: 12px; color: #d4d4d4">plan checked against the code</span>
+          </div>
+        </div>
+
+        <p style="margin: 10px 0 0; color: #d4d4d4">Here's the plan. The verifier checked every file and command it names.</p>
+
+        <!-- plan: one soft card -->
+        <article aria-label="Plan" style="margin-top: 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: #121212; overflow: hidden">
+          <div style="padding: 18px 20px 6px">
+            <div style="font-size: 11.5px; color: #737373; margin-bottom: 4px">Plan · revision 1 · <span style="font-family: 'JetBrains Mono', monospace">$0.17</span></div>
+            <h2 style="margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em">Add SIP, lumpsum and EMI calculators</h2>
+            <p style="margin: 4px 0 0; color: #a3a3a3; font-size: 13.5px; line-height: 21px">A Go + Gin API in <code style="font: 12px 'JetBrains Mono', monospace; background: #1f1f1f; border-radius: 4px; padding: 1px 5px; color: #d4d4d4">backend/</code> with three endpoints and one error shape; a React UI in <code style="font: 12px 'JetBrains Mono', monospace; background: #1f1f1f; border-radius: 4px; padding: 1px 5px; color: #d4d4d4">frontend/</code> with a tab per calculator and a theme switch.</p>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 12px 20px 16px">
+            <div>
+              <div style="font-size: 12px; color: #737373; margin-bottom: 4px">Steps</div>
+              <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #d4d4d4">
+                <li style="display: flex; gap: 8px"><span style="color: #525252">1.</span>Tests for SIP, lumpsum and EMI</li>
+                <li style="display: flex; gap: 8px"><span style="color: #525252">2.</span>Formulas in <code style="font: 12px 'JetBrains Mono', monospace">internal/calc</code></li>
+                <li style="display: flex; gap: 8px"><span style="color: #525252">3.</span>Router, validation, handler tests</li>
+                <li style="display: flex; gap: 8px; color: #525252"><span>…</span>10 more</li>
+              </ol>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #737373; margin-bottom: 4px">Files</div>
+              <div style="display: flex; flex-direction: column; gap: 2px; font: 12px/22px 'JetBrains Mono', monospace; color: #d4d4d4">
+                <span>backend/internal/calc/calc.go</span>
+                <span>backend/internal/httpapi/router.go</span>
+                <span>frontend/src/App.tsx</span>
+                <span style="color: #525252; font-family: Inter, sans-serif; font-size: 13px">… 15 more</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 14px">
+            <button type="button" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; background: rgba(52,211,153,.1); border: 0; color: #34d399; font: 500 12px Inter, sans-serif; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>Verifier checked it</button>
+            <button type="button" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; background: #1f1f1f; border: 0; color: #a3a3a3; font: 500 12px Inter, sans-serif; cursor: pointer">Done when · 14<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+            <button type="button" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 9999px; background: #1f1f1f; border: 0; color: #a3a3a3; font: 500 12px Inter, sans-serif; cursor: pointer">Risks · 6<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+          </div>
+        </article>
+
+        <!-- approval card -->
+        <section aria-label="Approval" style="margin-top: 10px; border-radius: 16px; background: #171717; padding: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6); font-size: 14px; font-weight: 450; letter-spacing: -0.05px; color: #a3a3a3">
+          <div style="display: flex; gap: 12px">
+            <span aria-hidden="true" style="width: 36px; height: 36px; flex: none; border-radius: 10px; background: #262626; color: #a3a3a3; display: grid; place-items: center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9.5"></circle><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.9"></path><circle cx="12" cy="17" r="0.6" fill="currentColor"></circle></svg>
+            </span>
+            <div style="min-width: 0; flex: 1">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+                <h3 style="margin: 0; font-size: 14.5px; line-height: 22px; font-weight: 550; letter-spacing: -0.01em; color: #ededed">Approve this plan?</h3>
+              </div>
+              <p style="margin: 4px 0 0; font-size: 14px; line-height: 24px; color: #a3a3a3">Approving opens an issue in arcanetech-ai/fincalc-goose and starts a runner (goose, up to 2 rounds). Only people with write access can approve.</p>
+            </div>
+          </div>
+          <div style="margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px">
+            <button type="button" style="height: 28px; padding: 0 12px 2px; border-radius: 9999px; border: 0; background: transparent; color: #a3a3a3; font: 450 14px Inter, sans-serif; letter-spacing: -0.05px; cursor: pointer">Cancel</button>
+            <button type="button" style="height: 28px; padding: 0 12px 2px; border-radius: 9999px; border: 0; background: #262626; color: #d4d4d4; font: 450 14px Inter, sans-serif; letter-spacing: -0.05px; cursor: pointer">Revise</button>
+            <button type="button" style="height: 28px; padding: 0 14px 2px; border-radius: 9999px; border: 0; background: #ededed; color: #0a0a0a; font: 500 14px Inter, sans-serif; letter-spacing: -0.05px; box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.18); cursor: pointer">Approve</button>
+          </div>
+        </section>
+      </section>
+
+      <!-- the same approval card once decided: the status chip replaces the buttons -->
+      <section aria-label="Approval, decided" style="border-radius: 16px; background: #171717; padding: 16px 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.4); font-size: 14px; font-weight: 450; color: #a3a3a3">
+        <div style="display: flex; gap: 12px; align-items: center">
+          <span aria-hidden="true" style="width: 36px; height: 36px; flex: none; border-radius: 10px; background: rgba(52,211,153,.12); color: #34d399; display: grid; place-items: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12l5 5L20 7"></path></svg></span>
+          <div style="min-width: 0; flex: 1">
+            <h3 style="margin: 0; font-size: 14.5px; line-height: 22px; font-weight: 550; color: #ededed">Plan approved</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #737373">by you at 1:22 AM</p>
+          </div>
+          <span style="border-radius: 9999px; background: #262626; padding: 4px 10px; font-size: 13px; color: #a3a3a3">Approved</span>
+        </div>
+      </section>
+
+      <!-- pullwright: issue opened -->
+      <section aria-label="Pullwright" style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #737373">
+          <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 6px; background: #ededed; display: grid; place-items: center"><span style="width: 6px; height: 6px; border-radius: 2px; background: #0a0a0a; display: block"></span></span>
+          <span style="color: #a3a3a3; font-weight: 500">Pullwright</span><time>1:22 AM</time>
+        </div>
+        <p style="margin: 2px 0 0; color: #d4d4d4">Opened <a href="#">issue #1</a> and queued it. A runner will open a pull request that tags you.</p>
+      </section>
+
+      <!-- pullwright: runner -->
+      <section aria-label="Pullwright, runner" style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #737373; margin-bottom: 2px">
+          <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 6px; background: #ededed; display: grid; place-items: center"><span style="width: 6px; height: 6px; border-radius: 2px; background: #0a0a0a; display: block"></span></span>
+          <span style="color: #a3a3a3; font-weight: 500">Pullwright</span><span>runner · goose</span><time>1:29 AM</time>
+        </div>
+        <button type="button" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 26px; padding: 0; background: transparent; border: 0; color: #8a8a8a; font: 12px/18px Inter, sans-serif; text-align: left; cursor: pointer">
+          <span aria-hidden="true" style="width: 22px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
+          ran 4 commands · edited 18 files · read 3 files
+        </button>
+        <div style="display: flex; flex-direction: column; padding-top: 2px">
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="-10" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="32" stroke="#404040" stroke-width="1"></line></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Edit</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px 0 1px; border-radius: 5px; background: #1f1f1f; font-size: 12px; color: #d4d4d4"><span style="width: 20px; height: 20px; border-radius: 4px; background: #0a0a0a; display: grid; place-items: center"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg></span>calc.go</span>
+            <span style="font: 500 11px 'JetBrains Mono', monospace; color: #34d399">+82</span>
+          </div>
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="32" stroke="#404040" stroke-width="1"></line></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Edit</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px 0 1px; border-radius: 5px; background: #1f1f1f; font-size: 12px; color: #d4d4d4"><span style="width: 20px; height: 20px; border-radius: 4px; background: #0a0a0a; display: grid; place-items: center"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg></span>CalculatorForm.tsx</span>
+            <span style="font: 500 11px 'JetBrains Mono', monospace; color: #34d399">+125</span>
+          </div>
+          <div style="position: relative; display: flex; flex-direction: column">
+            <svg aria-hidden="true" width="28" height="100%" style="position: absolute; left: 0; top: 0; height: 100%; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path><line x1="12.5" y1="10" x2="12.5" y2="100%" stroke="#404040" stroke-width="1"></line></svg>
+            <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
+              <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Run</span>
+              <span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 5px; background: #1f1f1f; font: 11.5px 'JetBrains Mono', monospace; color: #d4d4d4">cd frontend &amp;&amp; npm test</span>
+            </div>
+            <div style="margin: 2px 0 8px 56px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: #121212; overflow: hidden; font: 12px 'JetBrains Mono', monospace">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 5px 10px; background: #171717">
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
+                <span style="color: #d4d4d4">npm test</span>
+                <span style="margin-left: auto; color: #737373; font-size: 11px">8.6s</span>
+                <span style="padding: 1px 7px; border-radius: 6px; background: rgba(52,211,153,.12); color: #34d399; font-size: 11px">exit 0</span>
+              </div>
+              <div style="padding: 8px 12px; color: #8a8a8a; line-height: 18px; white-space: pre">✓ src/format.test.ts (4)
+✓ src/components/EmiForm.test.tsx (3)
+✓ src/components/ThemeSwitch.test.tsx (5)
+
+Test Files  8 passed (8)
+     Tests  54 passed (54)</div>
+            </div>
+          </div>
+          <div style="position: relative; height: 32px; display: flex; align-items: center; gap: 8px">
+            <svg aria-hidden="true" width="28" height="32" style="position: absolute; left: 0; top: 0; overflow: visible"><line x1="12.5" y1="0" x2="12.5" y2="10" stroke="#404040" stroke-width="1"></line><path d="M12.5 10 Q12.5 16 18.5 16 H28" fill="none" stroke="#404040" stroke-width="1"></path></svg>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="1.8" style="position: absolute; left: 32px; top: 8px"><path d="M9 11l3 3 8-8"></path><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path></svg>
+            <span style="margin-left: 56px; font-size: 12px; font-weight: 500; color: #a3a3a3">Checks</span>
+            <span style="font-size: 12px; color: #d4d4d4">build · lint · test</span>
+            <span style="font: 500 11px 'JetBrains Mono', monospace; color: #34d399">all pass</span>
+          </div>
+        </div>
+        <p style="margin: 10px 0 0; color: #d4d4d4"><a href="#">Pull request #2</a> is ready for your review: all checks pass after <strong style="font-weight: 600; color: #ededed">one round</strong>, and the independent review agreed.</p>
+      </section>
+
+      <!-- github comment -->
+      <section aria-label="Comment on GitHub" style="display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #737373; flex-wrap: wrap">
+          <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 9999px; background: #262626; display: grid; place-items: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" stroke-width="2"><circle cx="6" cy="6" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="M6 8.5v7M18 15.5V10a3 3 0 0 0-3-3h-4"></path></svg></span>
+          <span style="color: #a3a3a3; font-weight: 500">Mystery01092000</span><span>commented on PR #2</span><time>1:36 AM</time>
+          <a href="#" style="margin-left: auto; color: #8a8a8a">View on GitHub</a>
+        </div>
+        <blockquote style="margin: 0; border-left: 2px solid #333333; padding: 0 0 0 12px; color: #a3a3a3">The theme button reads “Dark mode” in both themes. Label it with the action instead, and update the test.</blockquote>
+      </section>
+
+      <!-- pullwright: follow-up, collapsed -->
+      <section aria-label="Pullwright, follow-up" style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #737373">
+          <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 6px; background: #ededed; display: grid; place-items: center"><span style="width: 6px; height: 6px; border-radius: 2px; background: #0a0a0a; display: block"></span></span>
+          <span style="color: #a3a3a3; font-weight: 500">Pullwright</span><time>1:41 AM</time>
+        </div>
+        <button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 6px; height: 26px; padding: 0; background: transparent; border: 0; color: #8a8a8a; font: 12px/18px Inter, sans-serif; text-align: left; cursor: pointer">
+          <span aria-hidden="true" style="width: 22px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2"><path d="M9 6l6 6-6 6"></path></svg></span>
+          ran 2 commands · edited 3 files
+        </button>
+        <p style="margin: 2px 0 0; color: #d4d4d4">Updated <a href="#">PR #2</a>: the button now says what clicking does, with a test for both themes.</p>
+      </section>
+    </div>
+
+    <!-- composer -->
+    <form style="width: 100%; max-width: 700px; box-sizing: border-box; margin: 0 auto; padding: 8px 24px 28px">
+      <div style="border-radius: 18px; background: #171717; border: 1px solid rgba(255,255,255,.06)">
+        <label for="msg" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Message</label>
+        <textarea id="msg" rows="2" placeholder="Ask about the PR, or ask for a change" style="display: block; width: 100%; box-sizing: border-box; padding: 14px 18px 4px; background: transparent; border: 0; color: #ededed; font: 14px/22px Inter, sans-serif; resize: none"></textarea>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px 10px 18px">
+          <span style="font-size: 11.5px; color: #525252">Changes go to the PR as your review comment</span>
+          <button type="submit" aria-label="Send" style="margin-left: auto; width: 32px; height: 32px; border-radius: 9999px; background: #ededed; color: #0a0a0a; border: 0; display: grid; place-items: center; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <!-- ═══ lifecycle: open layout, no borders ═══ -->
+  <aside aria-label="Lifecycle" style="flex: 1 1 280px; max-width: 320px; min-width: 260px; padding: 24px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <section style="border-radius: 14px; background: #121212; padding: 16px">
+      <div style="display: flex; align-items: baseline; margin-bottom: 14px"><h2 style="margin: 0; font-size: 12.5px; font-weight: 600">Progress</h2><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #737373">$1.38</span></div>
+      <ol aria-label="Progress" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 12.5px; line-height: 18px">
+        <li style="display: flex; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; flex: none; border-radius: 9999px; background: rgba(52,211,153,.14); display: grid; place-items: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><path d="M5 12l5 5L20 7"></path></svg></span><span>Plan<span style="display: block; color: #737373">1 revision</span></span></li>
+        <li style="display: flex; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; flex: none; border-radius: 9999px; background: rgba(52,211,153,.14); display: grid; place-items: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><path d="M5 12l5 5L20 7"></path></svg></span><span>Approved<span style="display: block; color: #737373"><a href="#">issue #1</a></span></span></li>
+        <li style="display: flex; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; flex: none; border-radius: 9999px; background: rgba(52,211,153,.14); display: grid; place-items: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3"><path d="M5 12l5 5L20 7"></path></svg></span><span>Runner<span style="display: block; color: #737373">goose · 1 round</span></span></li>
+        <li style="display: flex; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; flex: none; border-radius: 9999px; border: 1.5px solid #34d399; box-sizing: border-box; display: grid; place-items: center"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #34d399; display: block"></span></span><span>Pull request<span style="display: block; color: #737373"><a href="#">PR #2</a> · awaiting review</span></span></li>
+      </ol>
+    </section>
+    <section style="border-radius: 14px; background: #121212; padding: 16px">
+      <div style="display: flex; align-items: baseline; margin-bottom: 12px"><h2 style="margin: 0; font-size: 12.5px; font-weight: 600">Last run</h2><span style="margin-left: 8px; font-size: 12px; color: #34d399">green</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #737373">$0.84</span></div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font: 12px/18px 'JetBrains Mono', monospace; color: #a3a3a3">
+        <div style="display: flex"><span style="color: #34d399; width: 18px">✓</span>build<span style="margin-left: auto; color: #525252">0.7s</span></div>
+        <div style="display: flex"><span style="color: #34d399; width: 18px">✓</span>lint<span style="margin-left: auto; color: #525252">0.3s</span></div>
+        <div style="display: flex"><span style="color: #34d399; width: 18px">✓</span>test<span style="margin-left: auto; color: #525252">8.6s</span></div>
+      </div>
+    </section>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

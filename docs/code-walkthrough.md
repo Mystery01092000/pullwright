@@ -146,7 +146,7 @@ Slack (`channels/slack.py`) and Teams (`channels/teams.py`) build the same `Ment
    - the first message starts with a change verb (`add`, `fix`, `build`, ...): **change**;
    - a plan is waiting and the reply is `approve`, `lgtm` or `cancel`, or starts with `revise: ...`: that decision.
 
-   Anything else goes to the **responder** (`defaults/agents/responder.md`). It's a read-only agent that sees the repository map, the last 12 messages of the thread, the waiting plan and the fetched links, and returns `{intent, reply, task}` (`RESPOND_SCHEMA`):
+   Anything else goes to the **responder** (`defaults/agents/responder.md`). It's a read-only agent (`read_file`, `glob`, `grep`, `git_log`, `git_show`) that sees the repository map, the last 12 messages of the thread, the waiting plan and the fetched links, and returns `{intent, reply, task}` (`RESPOND_SCHEMA`):
 
    | Intent | What happens |
    |---|---|
@@ -165,7 +165,7 @@ Every reply goes through `_reply()`. That posts it on the channel and also recor
 1. **Clone:** refresh a read-only clone of the repository (`_repo_clone`). No code from it is run; `Session(hooks=False)`.
 2. **Session** (`session.py:32`): the planning budget (`PULLWRIGHT_PLAN_MAX_COST_USD`, default $1). Its event bus writes to the store (`store.append`), so the UI can show "describer is reading the repository".
 3. **`PlanRun.run()`** (`plan.py:142`):
-   - `describe()`: the describer (Sonnet, read-only tools `read_file`, `glob`, `grep`) writes the plan as JSON (`PLAN_SCHEMA`): title, a short summary, relevant files, steps, acceptance criteria, test plan, risks, questions;
+   - `describe()`: the describer (Sonnet, read-only tools `read_file`, `glob`, `grep`, `git_log`, `git_show`) writes the plan as JSON (`PLAN_SCHEMA`): title, a short summary, relevant files, steps, acceptance criteria, test plan, risks, questions;
    - `verify()`: the verifier checks the plan against the code (`VERIFY_SCHEMA`: approved, corrections, evidence). If it objects, the describer gets one more pass with the corrections;
    - `reviewer.review_plan()`: `_ChannelReviewer` (`intake.py:566`) posts the plan card (`channel.show_plan`), sets the request to `awaiting_approval`, and **blocks** that planning thread until a decision arrives in a queue (`_PendingReview`), or a week passes;
    - on **revise**, the loop runs again with the feedback (at most 3 revisions); on **cancel** it raises `PlanCancelled`.

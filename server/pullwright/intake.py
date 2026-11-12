@@ -239,7 +239,7 @@ class Intake:
         req = PlanRequest(task=task, repo=repo, requester=dev, thread_url=m.thread_url, thread_ref=dict(m.thread_ref))
         self._pending[rid] = _PendingReview()
         if quick is not None and quick[0] == "change":
-            self._reply(ch, m.thread_ref, f"On it. Reading `{repo}` and drafting a plan for: _{task}_")
+            self._reply(ch, m.thread_ref, f"On it. Reading `{repo}` and drafting a plan.")  # the task is right above; no echo
             self._pool.submit(self._plan, rid, req)
         else:
             self._pool.submit(self._respond, rid, req, history)
@@ -363,7 +363,7 @@ class Intake:
                 if history and task != req.task:  # "ok, do that": the restated task is what gets planned and shown
                     req.task = task
                     self.store.update_request(rid, task=task)
-                self._reply(ch, req.thread_ref, f"{out.get('reply', '').strip() or 'On it.'} Drafting a plan for: _{task}_")
+                self._reply(ch, req.thread_ref, f"{out.get('reply', '').strip() or 'On it.'} Drafting a plan.")  # the plan card says what
                 planning = True
                 self._plan(rid, req, session)
                 return

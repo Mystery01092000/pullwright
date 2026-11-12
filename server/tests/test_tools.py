@@ -75,3 +75,28 @@ def test_runner_denies_killing_by_name_or_group_but_allows_a_pid():
         assert denied(cmd), cmd
     for cmd in ["go run ./cmd/app & pid=$!; sleep 2; kill $pid", "kill 4321", "kill -9 12", "kill %1", "echo skill 0"]:
         assert not denied(cmd), cmd
+
+
+def test_git_log_and_show_are_read_only(tmp_path):
+    import subprocess
+
+    def g(*a):
+        subprocess.run(["git", *a], cwd=tmp_path, check=True, capture_output=True)
+    g("init", "-q")
+    g("config", "user.email", "t@example.com")
+    g("config", "user.name", "T")
+    (tmp_path / "a.txt").write_text("one\n")
+    g("add", ".")
+    g("commit", "-qm", "first")
+    (tmp_path / "a.txt").write_text("two\n")
+    g("commit", "-qam", "second change")
+    c = ToolContext(root=tmp_path)
+    allowed = ["git_log", "git_show"]
+    log, err = execute(c, "git_log", {"path": "", "limit": 5}, allowed)
+    assert not err and log.index("second change") < log.index("first") and "a.txt" in log
+    show, err = execute(c, "git_show", {"rev": "HEAD"}, allowed)
+    assert not err and "+two" in show and "-one" in show
+    out, err = execute(c, "git_show", {"rev": "--output=/tmp/x"}, allowed)
+    assert err and "not a revision" in out
+    out, err = execute(c, "git_log", {"path": "../..", "limit": 1}, allowed)
+    assert err and "escapes" in out

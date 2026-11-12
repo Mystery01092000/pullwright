@@ -63,7 +63,7 @@ mention ─► planning ─► awaiting_approval ─┬─► queued ─► pr_o
 4. **Planning** (`pipeline/plan.py`) runs in a background thread on a cached, read-only clone that is refreshed before each plan.
    - The **describer** gets the request and a repository map, opens the files it needs, and returns a structured plan: `summary`, `relevant_files`, `plan` steps, `acceptance_criteria`, `test_plan`, `risks`, `questions`.
    - The **verifier**, an agent that did not write the plan, opens the files itself and returns `{approved, corrections, evidence}`. If it objects, the describer revises once with those corrections.
-   - Both agents have only `read_file`, `glob` and `grep`. Nothing from the repository runs in the control plane.
+   - The describer has `read_file`, `glob`, `grep` and the read-only git tools `git_log` and `git_show`; the verifier has the first three. Nothing from the repository runs in the control plane.
 5. **Approval.** The plan is posted as a card in the thread (Slack Block Kit, a Teams Adaptive Card, or the web plan card) with three actions:
    - **Revise** sends the developer's feedback back to the describer.
    - **Cancel** ends the request.
@@ -115,7 +115,7 @@ It follows the runner's stdout to the end, stores its `PWEVENT` lines in the eve
 
 | Role | Model (default) | Tools | Output | Where |
 |---|---|---|---|---|
-| describer | Sonnet 5.5, effort medium | read_file, glob, grep | structured plan | control plane |
+| describer | Sonnet 5.5, effort medium | read_file, glob, grep, git_log, git_show | structured plan | control plane |
 | verifier | Sonnet 5.5, effort medium | read_file, glob, grep | `{approved, corrections, evidence}` | control plane |
 | supervisor | Sonnet 5.5, effort medium | read-only + bash + `spawn_worker` | report | runner |
 | worker | Haiku 5.5, effort medium | every tool (sandboxed) | report | runner |
@@ -192,5 +192,5 @@ server/pullwright/
   checks.py repomap.py session.py agent.py tools.py config.py models.py pricing.py store.py events.py git.py
   lifecycle.py api.py cli.py   local mode
 runner/Dockerfile      the runner image
-web/src/               Requests.tsx (team flow), App.tsx, Chat.tsx and Trace.tsx (local mode)
+web/src/               Requests.tsx (sidebar, new request, queue), Thread.tsx (conversation, plan, approval, activity), shared.tsx, components/ui/, App.tsx, Chat.tsx and Trace.tsx (local mode)
 ```

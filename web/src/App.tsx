@@ -5,6 +5,7 @@ import { Chat, NewTaskComposer } from './Chat'
 import { CostsView } from './Costs'
 import { usd } from './model'
 import { LoginScreen, QueueView, RequestsMain, RequestsSidebar, Toasts, useMe } from './Requests'
+import { Mark } from './shared'
 
 type Mode = 'team' | 'queue' | 'costs' | 'local'
 type Theme = 'system' | 'light' | 'dark'
@@ -79,21 +80,22 @@ export default function App() {
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor
 
   return (
-    <div className="flex h-full gap-3 p-0 md:p-3">
-      {sidebar && <button className="fixed inset-0 z-20 bg-black/40 md:hidden" aria-label="Close sidebar" onClick={() => setSidebar(false)} />}
-      <aside className="glass r-lg fixed inset-y-2 left-2 z-30 flex min-h-0 shrink-0 flex-col transition-all md:static md:inset-auto md:z-auto"
-        style={{ width: sidebar ? 272 : 0, overflow: 'hidden', opacity: sidebar ? 1 : 0, pointerEvents: sidebar ? undefined : 'none' }} aria-hidden={!sidebar}>
-        <div className="flex items-center gap-2 px-4 pt-4 pb-3">
-          <span className="h-3 w-3 rounded-[4px]" style={{ background: 'linear-gradient(160deg,#e8f6ff,#5fb2f2)', boxShadow: '0 0 12px rgba(95,178,242,.6)' }} aria-hidden />
-          <span className="font-semibold tracking-tight">Pullwright</span>
-          <button className="hov r-sm ml-auto p-1.5" style={{ color: 'var(--muted)' }} onClick={nextTheme} aria-label={`Theme: ${theme}. Switch theme`} title={`Theme: ${theme}`}><ThemeIcon size={14} /></button>
-          <button className="pill r-sm inline-flex items-center gap-1 px-2.5 py-1 text-xs" onClick={() => (mode === 'local' ? setSel(null) : (setMode('team'), setThread(null)))}><Plus size={12} /> New</button>
+    <div className="flex h-full">
+      {sidebar && <button className="fixed inset-0 z-20 bg-black/50 md:hidden" aria-label="Close sidebar" onClick={() => setSidebar(false)} />}
+      <aside className="fixed inset-y-0 left-0 z-30 flex min-h-0 shrink-0 flex-col transition-[width,opacity] duration-200 md:static md:inset-auto md:z-auto"
+        style={{ width: sidebar ? 264 : 0, overflow: 'hidden', opacity: sidebar ? 1 : 0, pointerEvents: sidebar ? undefined : 'none', background: 'var(--side)' }} aria-hidden={!sidebar}>
+        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3.5">
+          <Mark size={22} />
+          <span className="text-[14px] font-semibold tracking-[-0.01em]">Pullwright</span>
+          <button className="hov ml-auto grid size-[30px] place-items-center rounded-[8px]" style={{ color: 'var(--dim)' }} onClick={nextTheme} aria-label={`Theme: ${theme}. Switch theme`} title={`Theme: ${theme}`}><ThemeIcon size={14} /></button>
+          <button className="grid size-[30px] place-items-center rounded-[8px] transition-colors hover:brightness-125" style={{ background: 'var(--sel)', color: 'var(--text)' }}
+            aria-label="New request" title="New request" onClick={() => (mode === 'local' ? setSel(null) : (setMode('team'), setThread(null)))}><Plus size={14} /></button>
         </div>
-        <nav className="mx-3 mb-3 grid grid-cols-4 gap-1 text-[11px]" role="tablist" aria-label="Views">
+        <nav className="mx-3 mb-3 grid grid-cols-4 gap-0.5 rounded-[10px] p-[3px] text-[11.5px]" style={{ background: 'var(--field)' }} role="tablist" aria-label="Views">
           {TABS.map((t) => (
-            <button key={t.mode} role="tab" aria-selected={mode === t.mode} className="hov r-sm flex flex-col items-center gap-0.5 px-1 py-1.5 transition"
-              style={{ background: mode === t.mode ? 'var(--sel)' : undefined, color: mode === t.mode ? 'var(--text)' : 'var(--muted)' }}
-              onClick={() => setMode(t.mode)}>{t.icon}{t.label}</button>
+            <button key={t.mode} role="tab" aria-selected={mode === t.mode} className="flex h-7 items-center justify-center rounded-[7px] font-medium transition-colors"
+              style={{ background: mode === t.mode ? 'var(--muted-bg)' : undefined, color: mode === t.mode ? 'var(--text)' : 'var(--dim)' }}
+              onClick={() => setMode(t.mode)}>{t.label}</button>
           ))}
         </nav>
         {mode !== 'local' ? (me ? <RequestsSidebar me={me} sel={thread} onSelect={setThread} /> : <div className="flex-1" />) : (<>

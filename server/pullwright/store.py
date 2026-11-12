@@ -238,7 +238,7 @@ class Store:
             p = json.loads(r["payload"])
             if r["type"] == "tool_call":
                 inp = p.get("input") or {}
-                hint = next((str(inp[k]) for k in ("path", "command", "pattern", "task", "name") if k in inp), "")
+                hint = next((str(inp[k]) for k in ("path", "command", "pattern", "task", "name", "rev") if k in inp), "")
                 p = {"name": p.get("name"), "hint": hint[:160]}
             elif r["type"] == "agent_start":
                 p = {"name": p.get("name"), "model": p.get("model")}

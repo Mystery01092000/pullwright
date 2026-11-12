@@ -146,6 +146,37 @@ def bash(ctx: ToolContext, command: str) -> str:
     return f"exit {r.returncode}\n{out}"
 
 
+_REV = re.compile(r"^[\w./~^@{}-]{1,100}$")
+
+
+def _git_read(ctx: ToolContext, *args: str) -> str:
+    """Read-only git with fixed arguments: no shell, no pager, no hooks, output capped."""
+    try:
+        r = subprocess.run(["git", "-c", "core.pager=cat", "--no-pager", *args], cwd=ctx.root, capture_output=True, text=True,
+                           timeout=30, env=agent_env())
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise ToolError(f"git failed: {e}") from None
+    if r.returncode != 0:
+        raise ToolError(r.stderr.strip()[:2000] or f"git exited {r.returncode}")
+    out = r.stdout.strip() or "(no output)"
+    return out if len(out) <= 20_000 else out[:20_000] + "\n...(truncated)"
+
+
+def git_log(ctx: ToolContext, path: str, limit: int) -> str:
+    n = max(1, min(int(limit or 10), 30))
+    args = ["log", f"-n{n}", "--date=short", "--format=%h %ad %an%n    %s", "--stat=120,40"]
+    if path.strip():
+        args += ["--", str(ctx.resolve(path).relative_to(ctx.root.resolve()).as_posix() or ".")]
+    return _git_read(ctx, *args)
+
+
+def git_show(ctx: ToolContext, rev: str) -> str:
+    rev = rev.strip() or "HEAD"
+    if rev.startswith("-") or not _REV.match(rev):
+        raise ToolError(f"not a revision: {rev!r}")
+    return _git_read(ctx, "show", "--stat", "--patch", "--format=%H%nAuthor: %an <%ae>%nDate: %ad%n%n%B", rev, "--")
+
+
 TOOLS: dict[str, tuple[dict[str, Any], Callable[..., str]]] = {
     "read_file": (_schema("Read a file; returns numbered lines.", {"path": S}), read_file),
     "write_file": (_schema("Create or overwrite a file.", {"path": S, "content": S}), write_file),
@@ -153,6 +184,9 @@ TOOLS: dict[str, tuple[dict[str, Any], Callable[..., str]]] = {
     "glob": (_schema("List files matching a glob (supports **).", {"pattern": S}), glob_files),
     "grep": (_schema("Regex search in a file or directory.", {"pattern": S, "path": S}), grep),
     "bash": (_schema("Run a shell command in the project root.", {"command": S}), bash),
+    "git_log": (_schema("Recent commits (newest first) with the files each changed. path: limit to a file or folder, or empty for "
+                        "the whole repository. limit: how many commits, at most 30.", {"path": S, "limit": {"type": "integer"}}), git_log),
+    "git_show": (_schema("One commit's message and full diff. rev: a commit hash, HEAD, HEAD~1, a tag or a branch.", {"rev": S}), git_show),
 }
 ALL_TOOLS = list(TOOLS)
 
@@ -175,7 +209,9 @@ def execute(ctx: ToolContext, name: str, inp: Any, allowed: list[str], registry:
     required = schema["input_schema"].get("required", [])
     if not isinstance(inp, dict) or not set(required) <= set(inp) or not set(inp) <= set(props):
         return f"invalid input for {name}: {inp!r}", True
-    if schema.get("strict") and not all(isinstance(inp[k], str) for k in inp):
+    kinds = {"string": str, "integer": int}
+    if schema.get("strict") and not all(isinstance(inp[k], kinds.get(props[k].get("type", "string"), str))
+                                        and not isinstance(inp[k], bool) for k in inp):
         return f"invalid input for {name}: {inp!r}", True
     if ctx.pre_tool is not None:
         reason = ctx.pre_tool(name, inp)

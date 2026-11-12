@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Components and tokens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000000}
+a{color:#4da3ff}a:hover{color:#7dbaff}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1180px; box-sizing: border-box; padding: 48px 56px; background: #000000; color: #f2f2f2; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; align-content: start">
+
+  <!-- column 1: colour and type -->
+  <section style="display: flex; flex-direction: column; gap: 28px">
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Surfaces</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid #262626">
+        <div style="padding: 14px; background: #000000; border-right: 1px solid #262626; border-bottom: 1px solid #262626"><div style="font-weight: 600">Page</div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#000000</div></div>
+        <div style="padding: 14px; background: #0a0a0a; border-bottom: 1px solid #262626"><div style="font-weight: 600">Card</div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#0A0A0A</div></div>
+        <div style="padding: 14px; background: #111111; border-right: 1px solid #262626"><div style="font-weight: 600">Selected</div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#111111</div></div>
+        <div style="padding: 14px; background: #050505"><div style="font-weight: 600">Field</div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#050505</div></div>
+      </div>
+      <div style="display: flex; gap: 0; margin-top: 10px; border: 1px solid #262626">
+        <div style="flex: 1; padding: 10px 12px; border-right: 1px solid #262626"><div style="height: 2px; background: #262626; margin-bottom: 8px"></div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">border #262626</div></div>
+        <div style="flex: 1; padding: 10px 12px"><div style="height: 2px; background: #333333; margin-bottom: 8px"></div><div style="font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">control #333333</div></div>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Text and accent</h2>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #f2f2f2; display: block"></span>Text<span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#F2F2F2</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #a1a1a1; display: block"></span><span style="color: #a1a1a1">Muted</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#A1A1A1</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #7a7a7a; display: block"></span><span style="color: #7a7a7a">Dim (labels, times)</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#7A7A7A</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #4da3ff; display: block"></span><span style="color: #4da3ff">Accent: actions, links, you</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#4DA3FF</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #4ade80; display: block"></span><span style="color: #4ade80">Pullwright, success</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#4ADE80</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #a78bfa; display: block"></span><span style="color: #a78bfa">GitHub</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#A78BFA</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #fbbf24; display: block"></span><span style="color: #fbbf24">Working, warning</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#FBBF24</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; background: #f87171; display: block"></span><span style="color: #f87171">Failed</span><span style="margin-left: auto; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">#F87171</span></div>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Type</h2>
+      <div style="font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1">Display 40</div>
+      <div style="font-size: 17px; font-weight: 600; letter-spacing: -0.015em; margin-top: 10px">Card title 17 semibold</div>
+      <div style="font-size: 14px; margin-top: 6px">Body 14 · Inter, line height 1.55</div>
+      <div style="font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #7a7a7a; margin-top: 8px">Label · JetBrains Mono 10.5 caps</div>
+      <div style="font: 12.5px 'JetBrains Mono', monospace; color: #a1a1a1; margin-top: 6px">code, paths, costs · 12.5</div>
+    </div>
+  </section>
+
+  <!-- column 2: messages -->
+  <section style="display: flex; flex-direction: column; gap: 14px">
+    <h2 style="margin: 0; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Messages: one block each</h2>
+    <p style="margin: 0; color: #a1a1a1; font-size: 13px">Every message has its own border and a header strip: a square author mark, who, what kind, and the time. Two replies in a row are two blocks, 14 px apart. Yours sit on the right.</p>
+
+    <article style="align-self: flex-end; width: 82%; border: 1px solid #1f3b5c; background: #07111c">
+      <header style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #1f3b5c; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.04em">
+        <span aria-hidden="true" style="width: 8px; height: 8px; background: #4da3ff; display: block"></span><span style="color: #4da3ff; text-transform: uppercase">You</span><span style="color: #7a7a7a">message</span><time style="margin-left: auto; color: #7a7a7a">01:19</time>
+      </header>
+      <div style="padding: 10px 12px">Also cover negative amounts.</div>
+    </article>
+
+    <article style="width: 92%; border: 1px solid #262626; background: #0a0a0a">
+      <header style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #262626; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.04em">
+        <span aria-hidden="true" style="width: 8px; height: 8px; background: #4ade80; display: block"></span><span style="color: #4ade80; text-transform: uppercase">Pullwright</span><span style="color: #7a7a7a">answer</span><time style="margin-left: auto; color: #7a7a7a">01:20</time>
+      </header>
+      <div style="padding: 10px 12px">Negative amounts already return a 400 with <code style="font: 12.5px 'JetBrains Mono', monospace; background: #161616; padding: 1px 5px">invalid_input</code>.</div>
+    </article>
+
+    <article style="width: 92%; border: 1px solid #2e2546; background: #0c0a14">
+      <header style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #2e2546; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.04em">
+        <span aria-hidden="true" style="width: 8px; height: 8px; background: #a78bfa; display: block"></span><span style="color: #a78bfa; text-transform: uppercase">GitHub</span><span style="color: #f2f2f2">@vik</span><span style="color: #fbbf24">requested changes</span><a href="#" style="margin-left: auto; color: #a78bfa; text-decoration: none">View ↗</a>
+      </header>
+      <div style="padding: 6px 12px; border-bottom: 1px solid #2e2546; font: 11.5px 'JetBrains Mono', monospace; color: #a1a1a1">backend/internal/calc/calc.go:42</div>
+      <div style="padding: 10px 12px">Round the EMI before computing the total payment.</div>
+    </article>
+
+    <article style="width: 92%; border: 1px solid #262626; background: #0a0a0a">
+      <header style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #262626; font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.04em">
+        <span aria-hidden="true" style="width: 8px; height: 8px; background: #f87171; display: block"></span><span style="color: #f87171; text-transform: uppercase">Pullwright</span><span style="color: #7a7a7a">error</span><time style="margin-left: auto; color: #7a7a7a">01:24</time>
+      </header>
+      <div style="padding: 10px 12px; color: #fca5a5">Planning failed: the repository could not be cloned.</div>
+    </article>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed #333333; color: #a1a1a1; font-size: 13px">
+      <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #fbbf24; display: block"></span>Reading the repository…
+    </div>
+  </section>
+
+  <!-- column 3: controls -->
+  <section style="display: flex; flex-direction: column; gap: 28px">
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Buttons</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" style="height: 36px; padding: 0 16px; background: #4da3ff; color: #000000; border: 0; font: 600 13px Inter, sans-serif">Primary</button>
+        <button type="button" style="height: 36px; padding: 0 16px; background: transparent; color: #f2f2f2; border: 1px solid #333333; font: 500 13px Inter, sans-serif">Secondary</button>
+        <button type="button" style="height: 36px; padding: 0 16px; background: transparent; color: #a1a1a1; border: 1px solid #262626; font: 500 13px Inter, sans-serif">Quiet</button>
+        <button type="button" style="height: 36px; padding: 0 16px; background: #f2f2f2; color: #000000; border: 0; font: 600 13px Inter, sans-serif">Inverse</button>
+        <button type="button" disabled style="height: 36px; padding: 0 16px; background: #4da3ff; color: #000000; border: 0; font: 600 13px Inter, sans-serif; opacity: 0.45">Disabled</button>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Field</h2>
+      <label for="f1" style="display: block; font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #7a7a7a; margin-bottom: 6px">Repository</label>
+      <input id="f1" value="owner/repository" style="width: 100%; box-sizing: border-box; height: 36px; padding: 0 12px; background: #050505; border: 1px solid #262626; color: #f2f2f2; font: 13px 'JetBrains Mono', monospace">
+      <label for="f2" style="display: block; font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #7a7a7a; margin: 12px 0 6px">Focused</label>
+      <input id="f2" value="arcanetech-ai/fincalc" style="width: 100%; box-sizing: border-box; height: 36px; padding: 0 12px; background: #050505; border: 1px solid #4da3ff; color: #f2f2f2; font: 13px 'JetBrains Mono', monospace">
+    </div>
+
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Status</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; font: 500 11.5px 'JetBrains Mono', monospace">
+        <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid #1d4a2e; color: #4ade80"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #4ade80; display: block"></span>PR open</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid #4a3a12; color: #fbbf24"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #fbbf24; display: block"></span>runner working</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid #1f3b5c; color: #4da3ff"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #4da3ff; display: block"></span>needs approval</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid #4a1f1f; color: #f87171"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 9999px; background: #f87171; display: block"></span>failed</span>
+      </div>
+      <p style="margin: 10px 0 0; color: #7a7a7a; font-size: 12.5px">Dots are the only round shapes: they read as status lights.</p>
+    </div>
+
+    <div>
+      <h2 style="margin: 0 0 14px; font: 600 11px 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7a7a">Progress steps</h2>
+      <div style="display: flex; gap: 10px">
+        <span aria-label="done" role="img" style="width: 22px; height: 22px; border: 1.5px solid #4ade80; color: #4ade80; display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+        <span aria-label="active" role="img" style="width: 22px; height: 22px; border: 1.5px solid #4da3ff; display: grid; place-items: center"><span aria-hidden="true" style="width: 8px; height: 8px; background: #4da3ff; display: block"></span></span>
+        <span aria-label="to do" role="img" style="width: 22px; height: 22px; border: 1.5px solid #333333; display: block"></span>
+        <span aria-label="warning" role="img" style="width: 22px; height: 22px; border: 1.5px solid #fbbf24; color: #fbbf24; display: grid; place-items: center; font: 700 12px Inter, sans-serif">!</span>
+        <span aria-label="failed" role="img" style="width: 22px; height: 22px; border: 1.5px solid #f87171; color: #f87171; display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

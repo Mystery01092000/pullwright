@@ -79,6 +79,15 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 
 Claude Code's second fincalc round partly came from a plan criterion asking for "three commits", which no coder can meet because the pipeline commits. The describer and the reviewer now ignore git structure.
 
+### Web UI redesign (2026-11-13)
+
+- Designed on Claude Design first (`docs/design/`), then built: dark and flat, rounded, every message with its own header.
+- `Thread.tsx`: agent tool calls as folded activity rails (`ThinkingState`), `thinking-orbs` orbs for each live state, an approval card (Approve, Revise with feedback, Cancel), GitHub comments in place, and the newest reply streamed.
+- The plan card reads as one column: what it found, numbered steps (a bold lead with the details under it), files tagged new, edit or read, how it will check the work, then Verifier, Done when and Risks folded.
+- Answers to questions lead with a **Summary** card; the responder writes a `**Summary:**` line first.
+- The responder and the describer can read git history with the read-only `git_log` and `git_show` tools ("what did the last commit change?").
+- Tested live in Chrome: a question, a plan → approve → runner → PR #4 on quickcalc-goose ($0.23), a git-history question ($0.02), the theme toggle and a phone-width layout.
+
 ## To verify live
 
 1. ~~A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.~~ Done 2026-11-11.
