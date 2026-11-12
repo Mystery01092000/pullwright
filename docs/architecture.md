@@ -11,25 +11,37 @@ flowchart LR
     end
     subgraph CP[Control plane: pullwright-serve]
         I[Intake]
-        P[Planning<br/>describer + verifier]
+        P[Planning<br/>describer + verifier<br/>read-only, no hooks]
         D[Dispatcher]
-        DB[(SQLite<br/>requests, identities,<br/>events)]
+        X[LLM proxy<br/>job tokens, caps]
+        O[Org config sync<br/>pinned commit]
+        DB[(SQLite or Postgres<br/>requests, events, costs)]
     end
     subgraph GH[GitHub]
         IS[Issues<br/>labels = queue]
         PR[Pull requests]
+        OC[Org config repo<br/>agents, skills, hooks]
     end
-    subgraph R[Runner: one container per issue]
+    subgraph R[Runner: one container per issue, no keys]
         J[pullwright-work]
-        WK[Sonnet supervisor<br/>Haiku workers]
+        WK[supervisor<br/>workers + specialists]
         C[checks]
+        RV[independent review]
     end
+    M[Model providers<br/>Anthropic, OpenAI-compatible,<br/>self-hosted]
     S & T & W --> I --> P
     P -->|approved| IS
+    P --> M
+    OC -->|read-only token| O
     D -->|oldest queued| J
+    O -.->|same commit| J
     IS -.->|task in hidden block| J
-    J --> WK --> C --> WK
+    J --> WK --> C --> RV
+    C -->|fail| WK
+    RV -->|gaps| WK
+    WK -->|job token| X -->|real key| M
     J --> PR
+    PR -.->|review comments| D
     J -.->|PWEVENT lines| D --> DB
     D -->|PR link| I --> S & T & W
 ```

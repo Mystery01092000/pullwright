@@ -2,6 +2,31 @@
 
 This walks one task from the moment someone types it to the moment the PR is open. It covers what runs where, when a model is called, how both kinds of GitHub authentication work, and what you actually have to run. The numbers come from the first live runs on `arcanetech-ai/pullwright-sandbox`.
 
+## The run at a glance
+
+```mermaid
+flowchart TD
+    A[1. Ask in chat] --> B[2. Intake: linked account, allowed repo]
+    B -->|not allowed| A
+    B --> C[3. Describer drafts the plan<br/>read-only clone]
+    C --> V[4. Verifier checks it]
+    V -->|corrections, once| C
+    V --> G{5. Approve?<br/>write access}
+    G -->|revise| C
+    G -->|cancel| Z[Stopped]
+    G -->|approve| Q[6. Issue queued]
+    Q --> R[7. Runner starts<br/>container, 1-hour token]
+    R --> WK[8. Supervisor, workers, specialists]
+    WK --> K[9. Project checks]
+    K -->|fail, up to 4 rounds| WK
+    K --> RV[10. Independent review]
+    RV -->|gaps| WK
+    RV --> PR[11. Pull request + work log]
+    PR --> H{12. Human review}
+    H -->|comments| R
+    H -->|merge| Done[Merged by a person]
+```
+
 ## What you run
 
 | | What | Lifetime |
