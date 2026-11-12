@@ -122,7 +122,7 @@ export type PlanCardBody = {
   request_id: string; repo: string; task: string; plan_markdown: string; revision: number; cost_usd: number; questions: string[]
   spec?: PlanSpec | null; verification?: { approved: boolean; corrections: string[]; evidence: string } | null
 }
-export type ThreadMessage = { id: number; kind: 'user' | 'reply' | 'plan'; body: any; ts: number }
+export type ThreadMessage = { id: number; kind: 'user' | 'reply' | 'plan' | 'github'; body: any; ts: number }
 
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
 

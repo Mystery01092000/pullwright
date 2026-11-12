@@ -42,7 +42,7 @@ def _events(parser, lines):
 def test_coder_choice_per_repository():
     env = {"PULLWRIGHT_CODER": "claude-code", "PULLWRIGHT_CODER_BY_REPO": json.dumps({"acme/api": "goose"})}
     assert coder_for("acme/api", env) == "goose" and coder_for("acme/web", env) == "claude-code"
-    assert coder_for("acme/web", {}) == "native"
+    assert coder_for("acme/web", {}) == "goose"  # the default
     with pytest.raises(ValueError):
         coder_for("acme/web", {"PULLWRIGHT_CODER": "cursor"})
     assert stage_of("claude-code") == stage_of("goose") == "work"

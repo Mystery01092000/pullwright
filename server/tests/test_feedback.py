@@ -181,3 +181,36 @@ def test_state_hooks_fire_from_pipeline_sessions(tmp_path: Path):
     for state in ("describing", "verifying", "green"):
         s.bus.emit(Event("state", s.run_id, "run", {"state": state}))
     assert marker.read_text().split() == ["describing", "green"]
+
+
+# --- the chat and the PR in sync -------------------------------------------------------------------------------------
+
+def test_chat_relayed_comments_count_only_from_pullwrights_own_app():
+    fake = FakeGitHub()
+    gh = _gh(fake)
+    body = feedback.chat_comment("Rename the button to 'Calculate'", "Asha Rao", "asha")
+    fake.issue_comments[5] = [
+        {"id": 1, "user": {"login": "pullwright-app[bot]", "type": "Bot"}, "body": body, "created_at": "2026-11-11T10:00:01Z", "html_url": "u"},
+        {"id": 2, "user": {"login": "other-bot[bot]", "type": "Bot"}, "body": body, "created_at": "2026-11-11T10:00:02Z", "html_url": "u"},
+    ]
+    got = feedback.collect(gh, "arcane/app", 5, can_write={"asha": True}, trusted_bot="pullwright-app[bot]")
+    assert [(f.id, f.author, f.body) for f in got] == [("comment:1", "asha", "Rename the button to 'Calculate'")]
+    assert feedback.collect(gh, "arcane/app", 5, can_write={"asha": True}) == []  # no trusted bot known: bots never count
+    assert feedback.collect(gh, "arcane/app", 5, can_write={"asha": False}, trusted_bot="pullwright-app[bot]") == []  # no write access
+    # PULLWRIGHT_FEEDBACK_TRIGGER=mention: the chat is addressed to Pullwright, so it still counts
+    assert len(feedback.collect(gh, "arcane/app", 5, mention_only=True, can_write={"asha": True}, trusted_bot="pullwright-app[bot]")) == 1
+
+
+def test_conversation_is_what_people_said_without_bots_or_chat_echoes():
+    fake = FakeGitHub()
+    gh = _gh(fake)
+    fake.human_comment(5, "vik", "Looks close")
+    fake.human_review_comment(5, "vik", "Off by one here", "calc.go", 12)
+    fake.human_review(5, "vik", "", state="APPROVED")
+    fake.human_review(5, "vik", "", state="COMMENTED")  # an empty plain review says nothing
+    fake.issue_comments[5].append({"id": 9, "user": {"login": "pullwright-app[bot]", "type": "Bot"}, "body": "work log",
+                                   "created_at": "2026-11-11T11:00:00Z", "html_url": "u"})
+    fake.human_comment(5, "asha", feedback.chat_comment("from the chat", "Asha", "asha"))  # posted with a personal token
+    items = feedback.conversation(gh, "arcane/app", 5)
+    assert [(i["kind"], i.get("state", ""), i.get("path", "")) for i in items] == [
+        ("comment", "", ""), ("review_comment", "", "calc.go"), ("review", "APPROVED", "")]

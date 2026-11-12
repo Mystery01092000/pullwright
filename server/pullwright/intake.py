@@ -32,7 +32,7 @@ from typing import Any
 
 from . import git, links, repomap
 from .channels.base import Channel, ChatUser, Decision, Mention, PlanCard
-from .github import issues
+from .github import feedback, issues
 from .github.client import GitHub
 from .pipeline.plan import Developer, PlanCancelled, PlanRequest, PlanRun, Review, render_markdown
 from .session import Session
@@ -230,6 +230,10 @@ class Intake:
             else:
                 self._pool.submit(self._converse, active, m.user, task, history)
             return active["id"]
+        open_pr = in_thread[0] if in_thread and in_thread[0]["state"] in ("pr_open", "pr_draft") and in_thread[0].get("pr_url") else None
+        if open_pr is not None and repo == open_pr["repo"]:  # the thread's PR is open: changes go to it as review feedback
+            self._pool.submit(self._converse_pr, open_pr, dev, task, history)
+            return open_pr["id"]
         rid = uuid.uuid4().hex[:10]
         self.store.create_request(rid, m.user.channel, repo, task, dev.github_login, dev.name, m.thread_ref, m.thread_url)
         req = PlanRequest(task=task, repo=repo, requester=dev, thread_url=m.thread_url, thread_ref=dict(m.thread_ref))
@@ -397,6 +401,83 @@ class Intake:
         else:
             self._reply(ch, thread, f"This thread's task is still in progress ({active.get('issue_url') or active['state']}). "
                                     "Ask for more changes on its pull request, or start a new thread for a separate task.")
+
+    # --- the PR and the chat in sync ---------------------------------------------------------------
+
+    def _converse_pr(self, req: dict[str, Any], dev: Developer, text: str, history: list[str]) -> None:
+        """A message in a thread whose PR is open. A question is answered; a change is posted on the PR as review
+        feedback (attributed to the developer), and the PR feedback loop updates the same PR."""
+        ch, thread, rid = self.channels[req["channel"]], req["thread_ref"], req["id"]
+        number = int(req["pr_url"].rstrip("/").rsplit("/", 1)[1])
+        note = (f"This thread's task has an open pull request: {req['pr_url']}. A change the developer asks for now goes to "
+                "that PR as review feedback and a runner updates the same PR, so choose change for any requested edit.")
+        try:
+            session = self._session(rid, req["repo"])
+            out = self._ask(session, req["repo"], dev.name, text, history, req.get("plan"), note)
+            self.store.add_request_costs(rid, session.meter.to_dict(), {"kind": "chat", "status": out["intent"], "cost_usd": session.cost_usd})
+        except Exception as e:
+            log.exception("chat on the PR of %s failed", rid)
+            self._reply(ch, thread, f"I could not answer that: {type(e).__name__}: {str(e)[:500]}")
+            return
+        intent = out["intent"]
+        if intent == "answer":
+            self._reply(ch, thread, out.get("reply", "").strip() or "Nothing to add.")
+            return
+        if intent == "cancel" or intent == "approve":
+            self._reply(ch, thread, f"Merging or closing happens on GitHub: {req['pr_url']}." if intent == "approve"
+                        else f"To drop this work, close the pull request on GitHub: {req['pr_url']}.")
+            return
+        if not self.gh.can_write(req["repo"], dev.github_login):
+            self._reply(ch, thread, f"Only people with write access to `{req['repo']}` can ask for changes on its pull request.")
+            return
+        # the developer's own words are the comment; the responder's fuller reading rides along, folded, for the runner
+        reading = out.get("task", "").strip()
+        request = text if not reading or reading == text.strip() else (
+            f"{text}\n\n<details><summary>How Pullwright reads this</summary>\n\n{reading}\n\n</details>")
+        posted = self.gh.comment(req["repo"], number, feedback.chat_comment(request, dev.name, dev.github_login))
+        self._reply(ch, thread, f"Posted on the pull request as your review comment: {posted.get('html_url') or req['pr_url']}. "
+                                "A runner picks it up after a short quiet period and updates the same PR.")
+
+    def _github_message(self, req: dict[str, Any], item: dict[str, Any]) -> None:
+        """One PR comment or review, shown in the request's chat thread."""
+        ch = self.channels.get(req["channel"])
+        if ch is None:
+            return
+        if getattr(ch, "records_messages", False):  # the web UI renders these as GitHub cards
+            self.store.add_message(self._thread_key(ch, req["thread_ref"]), "github", {**item, "pr_url": req["pr_url"]})
+            return
+        verdict = {"APPROVED": "approved the pull request", "CHANGES_REQUESTED": "requested changes"}.get(item.get("state", ""), "commented")
+        where = f" on `{item['path']}:{item['line']}`" if item.get("path") else ""
+        body = item.get("body", "").strip()
+        self._reply(ch, req["thread_ref"], f"**{item['author']}** {verdict}{where} on GitHub" + (f":\n> {body[:1500]}" if body else ".")
+                    + (f"\n{item['url']}" if item.get("url") else ""))
+
+    def sync_github(self) -> int:
+        """Copy new comments and reviews on Pullwright's open PRs into each request's chat thread. Returns how many."""
+        copied = 0
+        for req in self.store.requests(None, 500):
+            if req["state"] not in ("pr_open", "pr_draft") or not req.get("pr_url"):
+                continue
+            try:
+                number = int(req["pr_url"].rstrip("/").rsplit("/", 1)[1])
+                items = feedback.conversation(self.gh, req["repo"], number)
+            except Exception:
+                log.exception("reading the PR of %s failed", req["id"])
+                continue
+            seen = self.store.synced(req["id"])
+            for item in items:
+                if item["id"] not in seen:
+                    self.store.mark_synced(req["id"], item["id"])
+                    self._github_message(req, item)
+                    copied += 1
+        return copied
+
+    def keep_github_synced(self, every_s: float, stop: threading.Event) -> None:
+        while not stop.wait(every_s):
+            try:
+                self.sync_github()
+            except Exception:
+                log.exception("PR sync failed")
 
     def _act_on_plan(self, rid: str, decision: str, feedback: str, user: ChatUser, ch: Channel, thread: dict[str, Any]) -> None:
         """A typed approve / revise / cancel on the waiting plan: the same path, and checks, as the card's buttons."""

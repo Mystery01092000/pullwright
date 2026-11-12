@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from pullwright.channels.base import ChatUser, Decision, Mention, PlanCard
 from pullwright.channels.slack import SlackChannel, plan_blocks
 from pullwright.channels.teams import AuthError, BotAuth, TeamsChannel, clean_text
+from pullwright.github import feedback
 from pullwright.intake import Intake, LinkSigner, split_repo
 from pullwright.store import Store
 from tests.fake_client import FakeClient, text, turn
@@ -370,3 +371,40 @@ def test_recover_closes_plans_orphaned_by_a_restart(tmp_path, remote):  # noqa: 
     assert intake.recover() == ["r1"]
     assert store.request("r1")["state"] == "cancelled" and store.request("r2")["state"] == "queued"
     assert "restarted" in ch.replies[-1][1]
+
+
+def _pr_request(store, thread=THREAD):
+    store.create_request("r9", "slack", "arcane/app", "add hello", "asha", "Asha Rao", dict(thread))
+    store.update_request("r9", state="pr_open", pr_url="https://github.com/arcane/app/pull/7", plan=SPEC)
+
+
+def test_pr_comments_are_copied_into_the_chat_once(tmp_path, remote):  # noqa: F811
+    intake, ch, store, client = _chat_intake(tmp_path, remote, [])
+    fake = intake.gh.http._transport.handler.__self__
+    _pr_request(store)
+    fake.human_comment(7, "vik", "Please add a test for zero")
+    fake.human_review(7, "vik", "", state="CHANGES_REQUESTED")
+    assert intake.sync_github() == 2
+    assert "**vik** commented on GitHub:\n> Please add a test for zero" in ch.replies[-2][1]
+    assert ch.replies[-1][1].startswith("**vik** requested changes on GitHub")
+    assert intake.sync_github() == 0  # nothing new: nothing posted twice
+
+
+def test_a_change_asked_in_the_chat_goes_to_the_open_pr_as_review_feedback(tmp_path, remote):  # noqa: F811
+    turns = [_says("answer", "It returns 'hi'."), _says("change", "I'll pass that on.", "Also handle an empty name")]
+    intake, ch, store, client = _chat_intake(tmp_path, remote, turns)
+    fake = intake.gh.http._transport.handler.__self__
+    _pr_request(store)
+    assert intake.on_mention(_mention(ASHA, "what does hello return?")) == "r9"  # a question on an open PR is answered
+    ch.wait_for(lambda: any("returns 'hi'" in r for _, r in ch.replies))
+    assert not fake.comments
+    assert intake.on_mention(_mention(ASHA, "also handle an empty name")) == "r9"
+    ch.wait_for(lambda: fake.comments)
+    number, body = fake.comments[-1]
+    assert number == 7 and body.startswith("also handle an empty name")  # the developer's own words first
+    assert "<details><summary>How Pullwright reads this</summary>" in body and "Also handle an empty name" in body
+    assert feedback.chat_author(body) == "asha" and "via the Pullwright chat" in body
+    ch.wait_for(lambda: any("Posted on the pull request" in r for _, r in ch.replies))
+    assert store.request("r9")["state"] == "pr_open" and len(store.requests("asha")) == 1  # no new request
+    intake.sync_github()
+    assert not any("commented on GitHub" in r for _, r in ch.replies)  # the chat's own comment is not echoed back

@@ -92,6 +92,9 @@ def build(store: Store | None = None) -> tuple[Any, dict[str, Any]]:
 
         intake.knowledge = KnowledgeBase(gh, store, Router)
         threading.Thread(target=intake.knowledge.refresh, args=(repos,), name="knowledge", daemon=True).start()
+        # comments and reviews on Pullwright's open PRs show up in the request's chat thread
+        threading.Thread(target=intake.keep_github_synced, args=(float(os.environ.get("PULLWRIGHT_GITHUB_SYNC_SECONDS", "30")), threading.Event()),
+                         name="github-sync", daemon=True).start()
 
     intake.register(WebChannel(store))
     if os.environ.get("SLACK_BOT_TOKEN") and os.environ.get("SLACK_APP_TOKEN"):

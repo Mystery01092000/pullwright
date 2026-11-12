@@ -89,6 +89,22 @@ class GitHub:
     def __init__(self, auth: TokenProvider, http: httpx.Client | None = None) -> None:
         self.auth = auth
         self.http = http or httpx.Client(base_url=API, headers=_HEADERS, timeout=30)
+        self._bot_login: str | None = None
+
+    def bot_login(self) -> str:
+        """The account Pullwright's own comments come from: `<app slug>[bot]` for a GitHub App, '' otherwise (with a
+        personal token, comments come from that person and count as theirs)."""
+        if self._bot_login is None:
+            self._bot_login = ""
+            if isinstance(self.auth, AppAuth):
+                try:
+                    r = self.http.get("/app", headers={"Authorization": f"Bearer {self.auth.jwt()}"})
+                    _raise(r)
+                    self._bot_login = f"{r.json()['slug']}[bot]"
+                except Exception:
+                    self._bot_login = None  # try again on the next call
+                    return ""
+        return self._bot_login
 
     def _req(self, method: str, repo: str, path: str, **kw: Any) -> Any:
         r = self.http.request(method, f"/repos/{repo}{path}", headers={"Authorization": f"Bearer {self.auth.token(repo)}"}, **kw)

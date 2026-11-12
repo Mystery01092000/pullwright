@@ -3,7 +3,7 @@
 Pullwright stays the workflow around it (a "blueprint"): setup, the deterministic checks, the independent review,
 commit, push and the PR. Only the agent steps, "implement the plan" and "fix these failures", are handed to the coder.
 
-    PULLWRIGHT_CODER=native|claude-code|goose          the default for every repository (native)
+    PULLWRIGHT_CODER=native|claude-code|goose          the default for every repository (goose)
     PULLWRIGHT_CODER_BY_REPO='{"acme/app": "goose"}'   per repository
     PULLWRIGHT_CODER_MODEL=claude-sonnet-5-5           the external agent's model (default: the supervisor's)
     PULLWRIGHT_CODER_MAX_TURNS=120                     its turn limit per step
@@ -36,6 +36,9 @@ from .models import MAIN_MODEL, role_model
 from .tools import AGENT_SCRUB_ENV
 
 CODERS = ("native", "claude-code", "goose")
+# goose is the default: in the 2026-11-13 comparisons it followed the org skills most closely (input bounds, explained
+# results, more tests) at the same cost as Claude Code (docs/coders.md). Repositories can still pick another.
+DEFAULT_CODER = "goose"
 SCRUB_ENV = tuple(k for k in AGENT_SCRUB_ENV if k != "PULLWRIGHT_LLM_TOKEN")  # its job token becomes ANTHROPIC_API_KEY
 GUARD = """#!/bin/sh
 # Pullwright runner guard: {why}
@@ -59,7 +62,7 @@ def coder_for(repo: str, env: dict[str, str] | None = None) -> str:
         by_repo = json.loads(env.get("PULLWRIGHT_CODER_BY_REPO") or "{}")
     except ValueError:
         by_repo = {}
-    kind = (by_repo.get(repo) or env.get("PULLWRIGHT_CODER") or "native").strip().lower()
+    kind = (by_repo.get(repo) or env.get("PULLWRIGHT_CODER") or DEFAULT_CODER).strip().lower()
     if kind not in CODERS:
         raise ValueError(f"unknown coder {kind!r}; use one of {', '.join(CODERS)}")
     return kind

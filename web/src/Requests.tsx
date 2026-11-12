@@ -226,6 +226,24 @@ function GrowingInput({ value, onChange, onSend, placeholder, minRows = 2, label
   )
 }
 
+/** A comment or review from the pull request, copied into the chat (intake.sync_github). */
+function GitHubComment({ item }: { item: { author: string; body: string; url: string; kind: string; state?: string; path?: string; line?: number } }) {
+  const verdict = item.state === 'APPROVED' ? { text: 'approved', color: 'var(--ok)' }
+    : item.state === 'CHANGES_REQUESTED' ? { text: 'requested changes', color: 'var(--warn)' } : null
+  return (
+    <div className="r-lg my-3 px-4 py-3 text-sm" style={{ background: 'var(--hover)', boxShadow: 'inset 3px 0 0 var(--accent-deep)' }}>
+      <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
+        <GitPullRequest size={13} aria-hidden />
+        <span className="font-medium" style={{ color: 'var(--text)' }}>@{item.author}</span>
+        <span>{verdict ? <span style={{ color: verdict.color }}>{verdict.text}</span> : item.kind === 'review_comment' ? 'commented on the diff' : 'commented'} on GitHub</span>
+        {item.path && <code className="mono">{item.path}{item.line ? `:${item.line}` : ''}</code>}
+        {item.url && <a className="ml-auto underline" style={{ color: 'var(--accent)' }} href={item.url} target="_blank" rel="noreferrer">View on GitHub</a>}
+      </div>
+      {item.body?.trim() && <Md text={item.body} />}
+    </div>
+  )
+}
+
 // ---------- one request ----------
 
 function Thread({ thread }: { thread: string }) {
@@ -278,6 +296,8 @@ function Thread({ thread }: { thread: string }) {
                 <div key={m.id} className="my-3 flex justify-end"><div className="glass r-lg max-w-[80%] whitespace-pre-wrap px-4 py-2 text-sm">{m.body.text}</div></div>
               ) : m.kind === 'plan' ? (
                 <PlanCard key={m.id} card={m.body} live={m === lastPlan && req?.state === 'awaiting_approval'} onDecide={decide} />
+              ) : m.kind === 'github' ? (
+                <GitHubComment key={m.id} item={m.body} />
               ) : (
                 <div key={m.id} className="reply my-3 text-[15px] leading-relaxed"><Md text={m.body.text} /></div>
               ),
@@ -301,6 +321,8 @@ function Thread({ thread }: { thread: string }) {
 
 const FOLLOW_UP_HINT: Record<string, string> = {
   awaiting_approval: 'Ask about the plan, ask for changes, or say "approve"…',
+  pr_open: 'Ask about the PR, or ask for a change: it goes to the PR as a review comment…',
+  pr_draft: 'Ask about the PR, or ask for a change: it goes to the PR as a review comment…',
   queued: 'Ask a question while the task waits for a runner…',
   working: 'Ask a question while the runner works…',
 }

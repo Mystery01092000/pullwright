@@ -91,7 +91,8 @@ class Dispatcher:
                 refresh = {"PULLWRIGHT_GITHUB_REFRESH": grant.refresh}
         from . import orgconfig
 
-        return {**runner_env(dict(os.environ), proxy), **refresh, **orgconfig.runner_env(self.gh)}
+        bot = {"PULLWRIGHT_BOT_LOGIN": self.gh.bot_login()} if self.gh.bot_login() else {}  # chat-relayed PR comments (feedback.py)
+        return {**runner_env(dict(os.environ), proxy), **refresh, **bot, **orgconfig.runner_env(self.gh)}
 
     def _settle(self, job: Job) -> dict[str, Any] | None:
         """Revoke the job's proxy token and keep what it spent (the proxy's count, which a runner cannot alter)."""
@@ -111,7 +112,7 @@ class Dispatcher:
                     continue
                 entries = worklog.entries(self.gh.issue_comments(repo, pr["number"]))
                 since = entries[-1].handled_until if entries else pr.get("created_at", "")
-                items = feedback.collect(self.gh, repo, pr["number"], since=since, mention_only=self.mention_only,
+                items = feedback.collect(self.gh, repo, pr["number"], since=since, mention_only=self.mention_only, trusted_bot=self.gh.bot_login(),
                                          can_write=self._writers, handled=worklog.handled_ids(entries))
                 if items and _age_s(items[-1].created_at) >= self.feedback_quiet_s:
                     ready.append((items[0].created_at, repo, pr["number"]))

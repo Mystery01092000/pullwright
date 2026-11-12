@@ -144,7 +144,8 @@ def run_feedback(repo: str, pr_number: int, gh: GitHub, client: Any, workdir: Pa
     log_entries = worklog.entries(gh.issue_comments(repo, pr_number))
     since = log_entries[-1].handled_until if log_entries else pr.get("created_at", "")
     started = worklog.now_iso()  # feedback written while this run works is picked up by the next one
-    items = feedback.collect(gh, repo, pr_number, since=since, mention_only=mention_only, handled=worklog.handled_ids(log_entries))
+    items = feedback.collect(gh, repo, pr_number, since=since, mention_only=mention_only, handled=worklog.handled_ids(log_entries),
+                             trusted_bot=os.environ.get("PULLWRIGHT_BOT_LOGIN", ""))
     branch = pr["head"]["ref"]
     if not items:
         issues.set_state(gh, repo, pr_number, issues.PR_OPEN)

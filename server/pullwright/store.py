@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS identities (
   channel TEXT, channel_user_id TEXT, github_login TEXT, name TEXT, linked_at REAL,
   PRIMARY KEY (channel, channel_user_id)
 );
+CREATE TABLE IF NOT EXISTS github_synced (
+  request_id TEXT, item_id TEXT, PRIMARY KEY (request_id, item_id)
+);
 """
 # Postgres: the same tables; REAL there is 4 bytes (it would round timestamps), and ids come from BIGSERIAL.
 PG_SCHEMA = SCHEMA.replace(" REAL", " DOUBLE PRECISION").replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
@@ -299,6 +302,19 @@ class Store:
                                     (thread_id, kind, json.dumps(body, default=str), time.time()))
             self.db.commit()
             return mid
+
+    # --- PR comments copied into a request's chat thread (intake.sync_github) ------------------------
+
+    def synced(self, rid: str) -> set[str]:
+        with self.lock:
+            rows = self.db.execute("SELECT item_id FROM github_synced WHERE request_id = ?", (rid,)).fetchall()
+        return {r["item_id"] for r in rows}
+
+    def mark_synced(self, rid: str, item_id: str) -> None:
+        with self.lock:
+            if self.db.execute("SELECT 1 FROM github_synced WHERE request_id = ? AND item_id = ?", (rid, item_id)).fetchone() is None:
+                self.db.execute("INSERT INTO github_synced (request_id, item_id) VALUES (?,?)", (rid, item_id))
+                self.db.commit()
 
     def messages(self, thread_id: str, after: int = 0) -> list[dict[str, Any]]:
         with self.lock:
