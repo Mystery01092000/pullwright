@@ -85,8 +85,11 @@ function groupActivity(events: Activity[]): Group[] {
 }
 
 const RUN_FINAL = new Set(['green', 'failed', 'budget', 'setup_failed', 'cancelled'])
+const PR_STATES = new Set(['pr_open', 'pr_draft'])
+const recent = (g: Group) => Date.now() / 1000 - g.end < 600 // a follow-up quiet for 10 minutes has stopped, whatever it said last
 const groupLive = (g: Group, req: RequestRow | null) =>
-  g.kind === 'runner' || g.kind === 'feedback' ? !RUN_FINAL.has(g.state) && (req?.state === 'working' || req?.state === 'queued')
+  g.kind === 'feedback' ? !RUN_FINAL.has(g.state) && recent(g) && (PR_STATES.has(req?.state ?? '') || req?.state === 'working')
+    : g.kind === 'runner' ? !RUN_FINAL.has(g.state) && (req?.state === 'working' || req?.state === 'queued')
     : g.state !== 'closed' && req?.state === 'planning'
 
 // ---------- pieces of a conversation ----------
@@ -368,7 +371,8 @@ function LiveStatus({ req, groups }: { req: RequestRow; groups: Group[] }) {
   const last = groups.at(-1)
   // until the first activity arrives we can't tell a question from a change: say the neutral thing
   let state = req.state === 'planning' ? (last?.state === 'verifying' ? 'verifying' : last?.kind === 'plan' && last.state !== 'closed' ? 'describing' : 'answering')
-    : req.state === 'queued' ? 'queued' : req.state === 'working' ? (last?.state ?? 'working') : ''
+    : req.state === 'queued' ? 'queued' : req.state === 'working' ? (last?.state ?? 'working')
+    : PR_STATES.has(req.state) && last?.kind === 'feedback' && groupLive(last, req) ? (last.state === 'closed' ? 'working' : last.state) : ''
   if (!state || RUN_FINAL.has(state)) return null
   if (req.state === 'working' && state === 'closed') state = 'working'
   const label: Record<string, string> = {
@@ -471,8 +475,11 @@ export function Thread({ thread }: { thread: string }) {
     const id = setInterval(poll, 2000)
     return () => { stop = true; clearInterval(id) }
   }, [thread])
-  const events = useActivity(req?.id, !!req && LIVE.has(req.state))
+  const [followUp, setFollowUp] = useState(false) // a review follow-up is running on the open PR
+  const events = useActivity(req?.id, !!req && (LIVE.has(req.state) || followUp))
   const groups = useMemo(() => groupActivity(events), [events])
+  const followUpLive = groups.some((g) => g.kind === 'feedback' && groupLive(g, req))
+  useEffect(() => { setFollowUp(followUpLive) }, [followUpLive])
   const plans = msgs.filter((m) => m.kind === 'plan')
   const lastPlan = plans.at(-1)
   const isTask = !!req && req.state !== 'answered' && !(req.state === 'failed' && !req.plan)
