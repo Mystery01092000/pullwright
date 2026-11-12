@@ -56,7 +56,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends golang-go openj
 USER runner
 ```
 
-Then set `PULLWRIGHT_RUNNER_IMAGE` to your image. Services a test suite needs (Postgres, Redis) can be started by the repository's `setup` command in `.pullwright/checks.json`, or provided as sidecar containers on the same Docker network.
+Then set `PULLWRIGHT_RUNNER_IMAGE` to your image. `runner/go/Dockerfile` is a ready example that adds Go 1.25 (`docker build -t pullwright-runner:go runner/go`). Runners run as uid 1000, so an extension must put tool caches under `/home/runner` (for Go: `GOPATH`, `GOMODCACHE`, `GOCACHE`), not `/root`; otherwise the checks fail with "permission denied" even when the agents worked around it in their own shells.
+
+A repository whose stack isn't in the image fails in setup or the first checks round. The runner can't install system toolchains itself, because agents run without root. Services a test suite needs (Postgres, Redis) can be started by the repository's `setup` command in `.pullwright/checks.json`, or provided as sidecar containers on the same Docker network.
+
+### Warm caches
+
+Each job is a fresh container, but downloads don't have to be. The Docker runner mounts one named volume (`PULLWRIGHT_RUNNER_CACHE`, default `pullwright-cache`) at `/home/runner/.cache`. The image points npm, uv, pip and Go's module and build caches there, so the second job on a repository installs from the cache instead of the network. An image that adds a toolchain should keep its cache under the same folder.
+
+The volume is shared by all repositories' jobs. npm, uv and Go check what they read from it against lockfile and checksum hashes, but a job could still plant files in it. When the repositories don't trust each other, give each its own volume, or set `PULLWRIGHT_RUNNER_CACHE=` to turn the cache off.
+
+### Tokens that outlive the job
+
+A runner starts with a newly minted GitHub token for its repository. GitHub App tokens last an hour, and a long job can outlast it. So before pushing, the runner asks the control plane for a fresh one (`POST /llm/github-token` on the LLM proxy). That call needs the job token and a second per-job secret, and agents' commands see neither. Without the LLM proxy the runner keeps the token it started with, so keep jobs under an hour there.
 
 ### Where the control plane runs
 

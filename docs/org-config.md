@@ -10,6 +10,17 @@ PULLWRIGHT_ORG_CONFIG=acme/agent-config@main:pullwright  # a folder inside the r
 
 Install the Pullwright GitHub App on that repository too. Pullwright reads it with a token limited to `contents: read`.
 
+## How a runner gets the skills
+
+The skills are never copied into the repository being changed:
+
+1. The control plane fetches the config repository (shallow, read-only) into its own cache when it starts, and again every `PULLWRIGHT_ORG_CONFIG_REFRESH` seconds. It records the commit.
+2. Planning (describer, verifier, responder) reads that cached copy.
+3. Each runner job is given that exact commit and a read-only token for the config repository. Inside the container, the runner fetches it into its scratch folder (`<tmp>/org-config`), **next to** the clone of the target repository, not inside it. Nothing from it is committed, and the PR diff never contains it.
+4. Every agent's prompt lists each skill's name and description. An agent calls `load_skill(name)` to read the full `SKILL.md` when the work calls for it, so unused skills cost a line of prompt, not their full text.
+
+Example: [arcanetech-ai/pullwright-skills](https://github.com/arcanetech-ai/pullwright-skills) (private) holds the organisation rules (`CLAUDE.md`) and skills for TDD, Go, Gin, API design, secure coding, React, frontend testing, UI design and pull requests.
+
 ## What the repository can hold
 
 Either Pullwright's layout or Claude Code's. A repository you already use with Claude Code works as it is.

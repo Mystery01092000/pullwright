@@ -64,7 +64,7 @@ Released images are published to GHCR for amd64 and arm64 on every `v*` tag: `gh
 In **Requests**, enter `your-name/your-test-repo` and a small, testable task, for example *"Add a `slugify(text)` helper in utils with tests for spaces, punctuation and unicode"*. Then:
 
 1. Within a minute or two a **plan card** appears with the relevant files, steps, acceptance criteria and test plan, and a note on whether the verifier agreed with it.
-2. Click **Revise** to change it, or **Approve and open issue**.
+2. Click **Revise**, or say what to change in the message box; click **Approve and open issue** or type *approve*. (A question instead of a task gets an answer in the thread, with no plan.)
 3. The issue appears in the repository, labeled `pullwright:queued` and assigned to you.
 4. Within `PULLWRIGHT_POLL_SECONDS` the dispatcher starts a container. The issue gets a `working` label and a comment, and the server log streams the runner's progress.
 5. When the checks pass, a PR opens with `Closes #n` and a review request to you, and its link appears in your thread. The **Queue** tab shows every approved issue and its state.

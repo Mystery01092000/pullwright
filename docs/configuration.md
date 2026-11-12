@@ -34,6 +34,11 @@ There are two layers:
 | `PULLWRIGHT_DISPATCHER` | `on` | Set to `off` to run a planning-only control plane. |
 | `PULLWRIGHT_RUNNER` | `docker` | `docker` (a container per issue) or `local` (a subprocess on this machine with **no isolation**; for development). |
 | `PULLWRIGHT_RUNNER_IMAGE` | `ghcr.io/mystery01092000/pullwright-runner:latest` | The image for Docker runners ([runners](runners.md)). |
+| `PULLWRIGHT_RUNNER_CACHE` | `pullwright-cache` | A named Docker volume mounted at `/home/runner/.cache`, so jobs reuse npm, uv, pip and Go downloads. Empty turns it off ([runners](runners.md#warm-caches)). |
+| `PULLWRIGHT_MAX_ROUNDS` | `2` | Coder → checks rounds per issue: the first checks, one fix round, then a draft PR for a human. |
+| `PULLWRIGHT_CODER` | `native` | Who does the runner's agent steps: `native`, `claude-code` or `goose` ([coders](coders.md)). |
+| `PULLWRIGHT_CODER_BY_REPO` | unset | JSON `{"owner/name": "goose"}`: the coder per repository. |
+| `PULLWRIGHT_CODER_MODEL` / `PULLWRIGHT_CODER_MAX_TURNS` | supervisor's model / `120` | The external coder's model and turn limit per step. |
 
 ### Models, providers and the LLM proxy ([details](providers.md))
 

@@ -1,14 +1,15 @@
 # Pullwright
 
-**Tag it with a task in Slack, Teams or the web. It reads your repository, writes a plan you approve, opens the GitHub issue, and an isolated runner works the issue until every check passes. Then it opens a pull request that tags you.**
+**Tag it in Slack, Teams or the web. Ask a question and it answers from your code. Ask for a change and it writes a plan you approve, opens the GitHub issue, and an isolated runner works the issue until every check passes. Then it opens a pull request that tags you.**
 
 Pullwright is an open-source agent harness for engineering teams. It turns a sentence in chat into a reviewed pull request, with a human approving the plan before any code is written and reviewing the PR before anything merges. A wright is a maker (a shipwright builds ships); this one makes pull requests.
 
 ```
  @pullwright arcane/app: rate-limit /login to 5 attempts a minute per IP
    │
+   ├─ a question? the responder answers from the code, in the thread. No issue, no PR.
    ├─ describer + verifier read the repo (read-only) and draft a plan ──► plan card in your thread
-   │                                                                       [Approve] [Revise] [Cancel]
+   │      [Approve] [Revise] [Cancel], or reply in the thread: ask about it, ask for changes, "lgtm"
    ├─ approved ──► GitHub issue #142, assigned to you, labeled pullwright:queued
    │
    ├─ runner (fresh Docker container) picks the oldest queued issue, one at a time
@@ -25,6 +26,7 @@ Pullwright is an open-source agent harness for engineering teams. It turns a sen
 - **Understand before writing.** A *describer* agent reads the repository and drafts a plan: relevant files, steps, acceptance criteria, test plan, risks. A separate *verifier* checks that plan against the code before you see it. Neither can write or run anything.
 - **A person approves the plan.** Nothing is built until a developer with write access to the repository clicks Approve. The approved plan becomes a GitHub issue carrying the developer's name, so the work has an owner and a paper trail.
 - **Commands decide when it is done, not a model.** The runner keeps iterating until the project's own checks (tests, lint, type checks, build) exit 0, and an independent reviewer agrees the acceptance criteria are met.
+- **Bring your coding agent.** The runner's agent steps can be done by Pullwright's own supervisor and workers, or by [Claude Code or goose](docs/coders.md), per repository. The checks, review, push and PR stay Pullwright's.
 - **Cheap models do the volume.** Workers run on Claude Haiku 5.5 ($0.10 per million input tokens); a Claude Sonnet 5.5 supervisor splits the work and checks each result. Every agent has a dollar cap, and every call's tokens and cost are recorded.
 - **Any provider, per role.** Each role can run on Anthropic, OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Ollama or any OpenAI-compatible server. An optional LLM proxy keeps every key on the control plane and enforces each job's dollar cap there.
 - **Isolated execution.** Each issue gets a throwaway container with a GitHub token that can touch only that repository and expires within an hour. Agents there cannot push or call `gh`; the pipeline does that itself.

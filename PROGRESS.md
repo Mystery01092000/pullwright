@@ -44,6 +44,35 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | 2026-11-11 | arcanetech-ai/pullwright-sandbox#1: `OrderStore.remove` + half-up percentage discount, with tests | Plan: 9 Sonnet calls, $0.088, verifier approved. Runner: Docker, `uv sync` 4s, 1 Haiku worker, lint+tests green in round 1, review complete. PR #2 ready, `Closes #1`, review requested from the requester, commits by pullwright[bot]. **$0.135 total, 72s runner time.** |
 | 2026-11-11 | sandbox#3 from the **web UI** (GitHub OAuth login): `OrderStore.list()` sorted by total | Plan $0.067, approved in the web plan card (write access checked live), issue #3, runner green in round 1 ($0.041), PR #4 with the describer's title, PR link posted back in the web thread. **$0.108 total.** |
 
+## 2026-11-12: conversation and routing
+
+- Intake routes each message: questions are answered in the thread by a read-only **responder**; changes are planned; messages on a waiting plan become approve, revise, cancel or an answer. Typed approvals use the button's write-access check. Tests: `test_quick_intent`, `test_a_question_is_answered_without_a_plan_or_an_issue`, `test_chat_then_confirm_plans_answers_about_the_plan_and_approves_by_text`, `test_a_message_while_the_plan_is_drafted_is_held_back`.
+- Describer summaries are capped at three sentences.
+- Web: Verifier, Done when and Risks fold closed on the plan card; long summaries clamp; the composer grows with its text and takes chat at every stage except drafting; the lifecycle docks on the right in landscape (at least 1024 px).
+- Org config demo: `arcanetech-ai/pullwright-skills`; Go runner image `runner/go/Dockerfile`.
+
+## 2026-11-13: coders, rounds, caches, links (Stripe Minions alignment)
+
+- `coders.py`: the runner's agent steps run on `native`, `claude-code` (2.1.322) or `goose` (v1.59.0), chosen per repository. Their stream-json becomes Pullwright events; skills go into the agent's own HOME; the LLM proxy keeps the job cap. They get no GitHub credentials, and guard commands block `git push`, `gh`, `pkill` and `killall`.
+- Default `PULLWRIGHT_MAX_ROUNDS` is now 2 (Minions: at most two CI runs).
+- Warm caches: a shared Docker volume for npm, uv, pip and Go caches.
+- Links in requests are fetched before planning (GitHub items through the client; other pages https-only and public-only).
+- Fixes found in live runs:
+  - `pkill -f fincalc` killed fincalc#1's own runner, so runner agents can't kill by name or group any more;
+  - the Go image's caches were under /root;
+  - a cached GitHub token expired before fincalc#1's push. Jobs now get a fresh token and refresh it before pushing (`/llm/github-token`), and agents' commands no longer inherit the runner's GitHub token.
+
+### Coder comparison (2026-11-13, same plan, both through the LLM proxy)
+
+| Task | Coder | Rounds | Runner time | Cost (plan + runner, proxy count) | Result |
+|---|---|---|---|---|---|
+| quickcalc (Go API, 1 endpoint) | Claude Code | 1 | 3.2 min | $0.13 + $0.26 | PR, 487 lines; no upper bounds on inputs |
+| quickcalc | goose | 1 | 4.6 min | $0.11 + $0.25 | PR, 589 lines; bounds and a body limit |
+| fincalc (Go API + React UI) | Claude Code | 2 | 5.6 min | $0.18 + $0.92 | PR, 28 UI tests, coverage 100/98% |
+| fincalc | goose | 1 | 6.9 min | $0.17 + $0.84 | PR, 54 UI tests, coverage 100/94%; richer UI (units, ranges, explained results) |
+
+Claude Code's second fincalc round partly came from a plan criterion asking for "three commits", which no coder can meet because the pipeline commits. The describer and the reviewer now ignore git structure.
+
 ## To verify live
 
 1. ~~A GitHub App on a sandbox repository: an approved plan → issue → Docker runner → PR.~~ Done 2026-11-11.

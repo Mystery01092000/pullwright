@@ -39,6 +39,19 @@ Outside services it calls: the **GitHub API**, the **Anthropic API**, and **Slac
 
 There is no Redis, no message broker and no database server. The queue lives on GitHub (issue labels), and state lives in one SQLite file. That is enough for one organization. For more scale, you would add EC2 runners and Postgres (see the [roadmap](roadmap.md)).
 
+## Questions, changes and conversation
+
+Every message is routed before anything is planned (`intake.py`):
+
+- **A question** goes to the **responder** (`defaults/agents/responder.md`, Sonnet, read-only tools). It answers in the thread with short sections and bullets, naming the files it read. The request is recorded as `answered` with its cost.
+- **A change** goes to planning. A first message that starts with a change verb skips the responder. Later messages go through it, and it writes the conversation up as one complete task.
+- **A message while a plan waits** is read as approve, revise, cancel or a question about the plan. Typed approvals go through the same write-access check as the button. *approve / lgtm / cancel / revise: ...* are decided without a model call.
+- A thread has at most one task in progress. While its plan is being drafted, new messages are held back; while the runner works, the responder only answers.
+
+**Links are read before any agent starts** (`links.py`), the way Stripe's Minions pre-run tools over a request's links. GitHub issue and pull request links go through the GitHub client, so private ones work. Other links are fetched only over https, only from public addresses (including after every redirect), with a 10-second timeout, 1 MB size limit and at most 5 links. Their text goes to the responder and the describer. A link that can't be read is listed with the reason.
+
+The responder sees the last 12 messages of the thread (the web UI stores them; for Slack and Teams intake keeps them in the same table), and the waiting plan when there is one.
+
 ## The timeline of one task
 
 ```

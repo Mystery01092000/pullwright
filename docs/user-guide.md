@@ -71,7 +71,7 @@ Rebuild the runner image after pulling new server code: a runner runs whatever c
 
 ```bash
 cd server
-uv run pullwright-serve
+uv run pullwright-serve     # reads server/.env on start; logs print in this terminal (PULLWRIGHT_LOG_LEVEL=DEBUG for more)
 # optional: keep provider keys out of runners
 PULLWRIGHT_LLM_PROXY_URL=http://host.docker.internal:8765/llm uv run pullwright-serve
 ```
@@ -96,24 +96,43 @@ Approved tasks open real issues and pull requests and spend real model credits. 
 
 The sidebar has four views: **Requests**, **Queue**, **Costs** and **Local**. The button next to **+ New** switches between the system, light and dark themes. On a phone the sidebar opens with the panel button.
 
-### Send a task
+### Ask a question or send a task
 
-In **Requests**, click **+ New**. Enter `owner/repository` (or leave it empty and Pullwright picks one from the task), describe the task, and press **Plan it** (Ctrl+Enter). Small, testable tasks work best, for example *"Add a `slugify(text)` helper in utils with tests for spaces, punctuation and unicode"*.
+In **Requests**, click **+ New**. Enter `owner/repository` (or leave it empty and Pullwright picks one from the task), type your message, and press **Send** (Enter; Shift+Enter adds a line). The box grows with what you type.
 
-If the repository isn't configured, or Pullwright needs you to name one, it says so in the thread. The message box under the thread lists the configured repositories, so you can answer or send the next task there.
+Pullwright reads each message before it does anything:
+
+| You write | What happens |
+|---|---|
+| A question: *"Give me a summary of this project"*, *"Where is auth handled?"* | A read-only **responder** answers in the thread from the code. No plan, no issue, no PR, a few cents. |
+| A change: *"Add a `slugify(text)` helper with tests"* | The describer and verifier draft a **plan** for you to approve. |
+| A discussion that ends in *"ok, do that"* | The responder rewrites the thread into one complete task, and that task is planned. |
+
+A first message that starts with a change verb (*add, fix, update, refactor, ...*) goes straight to planning. Anything else, and every follow-up, goes through the responder, which turns a talk into a task only when you ask for the change. When it is unsure, it answers and asks whether you want the change made. Small, testable changes work best.
+
+If the repository isn't configured, or Pullwright needs you to name one, it says so in the thread. Follow-ups in a thread use that thread's repository.
 
 ### Read and approve the plan
 
 While planning runs, a placeholder says whether the describer is reading the repository or the verifier is checking the plan. Then the plan card shows:
 
-- the title, the summary and whether the verifier agreed with the plan;
-- **Steps**, **Files** (each with why it matters), **Done when** (acceptance criteria), **Tests** and **Risks**;
-- **open questions**: answer them with **Revise**;
+- the title and a short summary (a long one is cut to a few lines, with **Show more**);
+- **Steps**, **Files** (each with why it matters) and **Tests**;
+- three folded sections, closed until you open them: **Verifier** (checked against the code, or the corrections it wants), **Done when** (acceptance criteria) and **Risks**. Each shows a count or verdict while closed;
+- **open questions**, which you answer in the chat;
 - the planning cost so far.
 
-**Approve and open issue** needs write access to the repository. **Revise** takes your feedback and drafts a new revision. **Cancel** stops the request.
+Use the buttons, or just talk in the message box under the thread while the plan waits:
+
+- ask about it (*"why does step 3 touch the router?"*): you get an answer and the plan keeps waiting;
+- ask for changes (*"also cover negative amounts"*): a new revision is drafted;
+- *approve*, *lgtm*, *looks good*, *go ahead*: approves; *cancel*: stops; *revise: ...*: revises with what follows.
+
+Approving, by button or by text, needs write access to the repository and opens the issue. While the runner works, the message box still takes questions; ask for further changes on the PR, or start a new thread for a separate task.
 
 ### Follow the work
+
+On a landscape screen at least 1024 px wide, the request's lifecycle (progress steps, links, cost and the runner panel) sits in a column on the right, next to the chat. On narrower or portrait screens it sits above the chat.
 
 The header of every request shows a five-step progress bar: Plan, Approve, Queue, Runner, Pull request. Each step carries a short status, for example "Running the checks · round 2". It also links the issue and the PR, and shows the request's total cost.
 
