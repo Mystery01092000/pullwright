@@ -31,9 +31,11 @@ Legend: **Dev** = implemented · **Tested** = automated tests pass (scripted mod
 | Web: request timeline, live runner panel, structured plan card, Costs view, light theme | x | build | x | | checked in a browser against a seeded store |
 | Docker Compose + control-plane image (#8) | x | n/a | x | | image built; API, UI, proxy, Docker CLI and healthcheck verified |
 | GHCR release workflow, amd64 + arm64 (#5) | x | n/a | | | runs on the first v* tag |
+| Planning evals: describer file recall/precision, verifier catch rate (#4) | x | x | x | | live: 4/4, $0.018 per plan on Sonnet 5.5 |
+| Postgres option for the control-plane store | x | x | x | | store tests and the control-plane image verified on postgres:17 |
 | EC2 runner | | | | | roadmap |
 
-119 tests pass (`cd server && uv run pytest -q`), `ruff check` is clean, `npm run build` passes.
+126 tests pass (`cd server && uv run pytest -q`; set `PULLWRIGHT_TEST_PG` to include Postgres), `ruff check` is clean, `npm run build` passes.
 
 ## Live runs
 
